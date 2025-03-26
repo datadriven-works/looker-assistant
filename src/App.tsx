@@ -10,7 +10,7 @@ const App = () => {
       <ExtensionProvider40>
         <div className="container mx-auto p-4">
           <div className="card bg-white shadow-lg rounded-lg p-6">
-            <h1 className="card__title text-2xl font-bold mb-4">React + SCSS + Tailwind test</h1>
+            <h1 className="card__title text-2xl font-bold mb-4">React + SCSS + Tailwind</h1>
             <div className="card__content">
               <button 
                 className="button--primary mr-4"

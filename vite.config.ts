@@ -85,6 +85,149 @@ const corsPlugin: Plugin = {
   }
 };
 
+// Simple plugin to serve bundle.js for Looker extension development
+const lookerBundlePlugin: Plugin = {
+  name: 'looker-bundle',
+  apply: 'serve',
+  configureServer(server) {
+    // Build a production bundle to get the compiled code
+    server.httpServer?.once('listening', () => {
+      console.log('Building production bundle for Looker extension...');
+      try {
+        execSync('yarn build --mode production', { stdio: 'inherit' });
+        console.log('Bundle successfully built - available at http://localhost:8080/bundle.js');
+        console.log('To see changes, manually refresh your Looker extension after editing files.');
+      } catch (err) {
+        console.error('Failed to build bundle:', err);
+      }
+    });
+    
+    // Serve a completely self-contained bundle.js
+    server.middlewares.use((req, res, next) => {
+      if (req.url === '/bundle.js') {
+        console.log('Serving bundle.js for Looker extension');
+        
+        const bundlePath = path.resolve(__dirname, 'dist/bundle.js');
+        
+        if (!fs.existsSync(bundlePath)) {
+          res.statusCode = 404;
+          res.end('Bundle not found. Please wait for the build to complete or run "yarn build" manually.');
+          return;
+        }
+        
+        // Get the host from request headers
+        const host = req.headers.host || 'localhost:8080';
+        const protocol = req.headers.referer?.startsWith('https') ? 'https' : 'http';
+        const fullHostUrl = `${protocol}://${host}`;
+        
+        try {
+          // Read the compiled bundle
+          const bundleContent = fs.readFileSync(bundlePath, 'utf8');
+          
+          // Set appropriate headers
+          res.setHeader('Content-Type', 'application/javascript');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          
+          // Create a wrapper with automatic refresh on changes
+          const finalBundle = `
+            // Self-contained bundle with auto-refresh for Looker extension
+            (function() {
+              // The actual compiled application code
+              ${bundleContent}
+              
+              // Setup polling for changes
+              let lastModified = ${Date.now()};
+              
+              // Poll for changes every 2 seconds
+              setInterval(function() {
+                // Check if bundle has been rebuilt by comparing timestamps - use full URL
+                fetch('${fullHostUrl}/bundle-version?ts=' + new Date().getTime())
+                  .then(response => response.text())
+                  .then(newTimestamp => {
+                    const timestamp = parseInt(newTimestamp, 10);
+                    if (timestamp > lastModified) {
+                      console.log('[HMR] Bundle updated, reloading...');
+                      lastModified = timestamp;
+                      window.location.reload();
+                    }
+                  })
+                  .catch(err => {
+                    console.error('[HMR] Failed to check for updates:', err);
+                  });
+              }, 2000);
+              
+              console.log('[HMR] Change detection enabled for Looker extension');
+            })();
+          `;
+          
+          res.end(finalBundle);
+        } catch (err: any) {
+          console.error('Error serving bundle.js:', err);
+          res.statusCode = 500;
+          res.end('Error serving bundle.js: ' + err.message);
+        }
+        
+        return;
+      }
+      
+      // Serve the bundle version timestamp
+      if (req.url?.startsWith('/bundle-version')) {
+        const bundlePath = path.resolve(__dirname, 'dist/bundle.js');
+        let timestamp = Date.now(); // Default to current time
+        
+        if (fs.existsSync(bundlePath)) {
+          // Get the actual file modification time
+          const stats = fs.statSync(bundlePath);
+          timestamp = stats.mtimeMs;
+        }
+        
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.end(timestamp.toString());
+        return;
+      }
+      
+      next();
+    });
+    
+    // Watch for changes and rebuild the bundle
+    const { watcher } = server;
+    let isRebuilding = false;
+    let rebuildTimeout: NodeJS.Timeout | null = null;
+    
+    const rebuildBundle = () => {
+      if (isRebuilding) return;
+      
+      isRebuilding = true;
+      console.log('Rebuilding bundle.js after changes...');
+      
+      try {
+        execSync('yarn build --mode production', { stdio: 'inherit' });
+        console.log('Bundle successfully rebuilt.');
+        console.log('Refresh your Looker extension to see the changes.');
+      } catch (err) {
+        console.error('Failed to rebuild bundle:', err);
+      } finally {
+        isRebuilding = false;
+      }
+    };
+    
+    watcher.on('change', (filePath) => {
+      if (/\.(tsx?|jsx?|css|scss|less|vue)$/.test(filePath)) {
+        console.log(`File changed: ${filePath}, scheduling bundle rebuild...`);
+        
+        // Clear previous timeout
+        if (rebuildTimeout) {
+          clearTimeout(rebuildTimeout);
+        }
+        
+        // Schedule rebuild with debounce
+        rebuildTimeout = setTimeout(rebuildBundle, 1000);
+      }
+    });
+  }
+};
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const isDevelopment = mode === 'development';
@@ -99,63 +242,8 @@ export default defineConfig(({ mode }) => {
         brotliSize: true,
       }),
       forceCssInline,
-      // Always add CORS plugin in development
       corsPlugin,
-      // Middleware to serve the bundle.js in development
-      {
-        name: 'serve-bundle',
-        apply: 'serve',
-        configureServer(server) {
-          // Build bundle.js on server start with no minification
-          server.httpServer?.once('listening', () => {
-            console.log('Building bundle.js for development server...');
-            try {
-              // Run the build synchronously with minify=false
-              execSync('yarn build --mode development', { stdio: 'inherit' });
-              console.log('Bundle successfully built');
-            } catch (err) {
-              console.error('Failed to build bundle:', err);
-            }
-          });
-  
-          // Set up file watcher to rebuild bundle when files change
-          const { watcher } = server;
-          watcher.on('change', (path) => {
-            // Check if the changed file is a source file we care about
-            if (/\.(tsx?|jsx?|css|scss|less|vue)$/.test(path)) {
-              console.log(`File changed: ${path}, rebuilding bundle.js...`);
-              try {
-                // Run the build asynchronously to avoid blocking the HMR
-                execSync('yarn build --mode development', { stdio: 'inherit' });
-                console.log('Bundle successfully rebuilt');
-              } catch (err) {
-                console.error('Failed to rebuild bundle:', err);
-              }
-            }
-          });
-
-          // Serve the bundle.js file
-          server.middlewares.use((req, res, next) => {
-            if (req.url === '/bundle.js') {
-              const bundlePath = path.resolve(__dirname, 'dist/bundle.js');
-              
-              // Stream the bundle file
-              try {
-                const stream = fs.createReadStream(bundlePath);
-                res.setHeader('Content-Type', 'application/javascript');
-                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-                stream.pipe(res);
-              } catch (err) {
-                console.error('Error serving bundle.js:', err);
-                res.statusCode = 500;
-                res.end('Error serving bundle.js');
-              }
-              return;
-            }
-            next();
-          });
-        }
-      }
+      lookerBundlePlugin
     ],
     // CSS preprocessing options
     css: {
@@ -178,8 +266,8 @@ export default defineConfig(({ mode }) => {
       port: 8080,
       strictPort: true, // Don't try another port if 8080 is in use
       host: true, // Listen on all network interfaces
-      // Set CORS to true to enable it for all origins in development
       cors: true,
+      hmr: true, // Ensure HMR is enabled for regular development
     },
     build: {
       // Don't extract CSS into separate files
