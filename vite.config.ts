@@ -5,8 +5,8 @@ import fs from 'fs'
 import dotenv from 'dotenv'
 import { visualizer } from 'rollup-plugin-visualizer'
 import type { OutputChunk } from 'rollup'
-import tailwindcssPlugin from '@tailwindcss/postcss'
 import autoprefixer from 'autoprefixer'
+import tailwindcss from 'tailwindcss'
 import { execSync } from 'child_process'
 
 // Create .env file if it does not exist
@@ -256,7 +256,7 @@ export default defineConfig(({ mode }) => {
       // Ensure PostCSS runs on all CSS, including CSS imported in JS
       postcss: {
         plugins: [
-          tailwindcssPlugin,
+          tailwindcss,
           autoprefixer,
         ],
       },
