@@ -7,6 +7,7 @@ import { visualizer } from 'rollup-plugin-visualizer'
 import type { OutputChunk } from 'rollup'
 import tailwindcssPlugin from '@tailwindcss/postcss'
 import autoprefixer from 'autoprefixer'
+import { execSync } from 'child_process'
 
 // Create .env file if it does not exist
 if (!fs.existsSync('.env')) {
@@ -59,97 +60,131 @@ const forceCssInline: Plugin = {
   }
 };
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    visualizer({
-      open: process.env.ANALYZE === 'true',
-      filename: 'dist/stats.html',
-      gzipSize: true,
-      brotliSize: true,
-    }),
-    forceCssInline,
-    // Middleware to serve the bundle.js in development
-    {
-      name: 'serve-bundle',
-      apply: 'serve',
-      configureServer(server) {
-        // Build bundle.js on server start
-        server.httpServer?.once('listening', () => {
-          console.log('Building bundle.js for development server...');
-          try {
-            // Run the build synchronously
-            const { execSync } = require('child_process');
-            execSync('yarn build', { stdio: 'inherit' });
-            console.log('Bundle successfully built');
-          } catch (err) {
-            console.error('Failed to build bundle:', err);
-          }
-        });
-
-        // Serve the bundle.js file
-        server.middlewares.use((req, res, next) => {
-          if (req.url === '/bundle.js') {
-            const bundlePath = path.resolve(__dirname, 'dist/bundle.js');
-            
-            // Stream the bundle file
-            try {
-              const stream = fs.createReadStream(bundlePath);
-              res.setHeader('Content-Type', 'application/javascript');
-              stream.pipe(res);
-            } catch (err) {
-              console.error('Error serving bundle.js:', err);
-              res.statusCode = 500;
-              res.end('Error serving bundle.js');
-            }
-            return;
-          }
-          next();
-        });
+// CORS plugin to ensure CORS is always enabled in development
+const corsPlugin: Plugin = {
+  name: 'vite-plugin-cors',
+  apply: 'serve',
+  configureServer(server) {
+    // Add CORS headers to all responses in development
+    server.middlewares.use((req, res, next) => {
+      // Allow requests from any origin in development for easier debugging
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-looker-appid');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      
+      // Handle preflight OPTIONS requests
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204;
+        res.end();
+        return;
       }
-    }
-  ],
-  // CSS preprocessing options
-  css: {
-    preprocessorOptions: {
-      scss: {
-        // Add any Sass options if needed
-        additionalData: '$primary-color: #4a8bfc;', // Example of injecting global SCSS variables
+      
+      next();
+    });
+  }
+};
+
+// https://vite.dev/config/
+export default defineConfig(({ mode }) => {
+  const isDevelopment = mode === 'development';
+  
+  return {
+    plugins: [
+      react(),
+      visualizer({
+        open: process.env.ANALYZE === 'true',
+        filename: 'dist/stats.html',
+        gzipSize: true,
+        brotliSize: true,
+      }),
+      forceCssInline,
+      // Always add CORS plugin in development
+      corsPlugin,
+      // Middleware to serve the bundle.js in development
+      {
+        name: 'serve-bundle',
+        apply: 'serve',
+        configureServer(server) {
+          // Build bundle.js on server start with no minification
+          server.httpServer?.once('listening', () => {
+            console.log('Building bundle.js for development server...');
+            try {
+              // Run the build synchronously with minify=false
+              execSync('yarn build --mode development', { stdio: 'inherit' });
+              console.log('Bundle successfully built');
+            } catch (err) {
+              console.error('Failed to build bundle:', err);
+            }
+          });
+  
+          // Serve the bundle.js file
+          server.middlewares.use((req, res, next) => {
+            if (req.url === '/bundle.js') {
+              const bundlePath = path.resolve(__dirname, 'dist/bundle.js');
+              
+              // Stream the bundle file
+              try {
+                const stream = fs.createReadStream(bundlePath);
+                res.setHeader('Content-Type', 'application/javascript');
+                stream.pipe(res);
+              } catch (err) {
+                console.error('Error serving bundle.js:', err);
+                res.statusCode = 500;
+                res.end('Error serving bundle.js');
+              }
+              return;
+            }
+            next();
+          });
+        }
+      }
+    ],
+    // CSS preprocessing options
+    css: {
+      preprocessorOptions: {
+        scss: {
+          // Add any Sass options if needed
+          additionalData: '$primary-color: #4a8bfc;', // Example of injecting global SCSS variables
+        },
+      },
+      // Ensure PostCSS runs on all CSS, including CSS imported in JS
+      postcss: {
+        plugins: [
+          tailwindcssPlugin,
+          autoprefixer,
+        ],
       },
     },
-    // Ensure PostCSS runs on all CSS, including CSS imported in JS
-    postcss: {
-      plugins: [
-        tailwindcssPlugin,
-        autoprefixer,
-      ],
+    // Configure the development server
+    server: {
+      port: 8080,
+      strictPort: true, // Don't try another port if 8080 is in use
+      host: true, // Listen on all network interfaces
+      // Set CORS to true to enable it for all origins in development
+      cors: true,
     },
-  },
-  // Configure the development server
-  server: {
-    port: 8080,
-    strictPort: true, // Don't try another port if 8080 is in use
-    host: true, // Listen on all network interfaces
-  },
-  build: {
-    // Don't extract CSS into separate files
-    cssCodeSplit: false,
-    // Disable code splitting entirely
-    target: 'esnext',
-    rollupOptions: {
-      input: path.resolve(__dirname, 'src/main.tsx'),
-      output: {
-        format: 'iife',
-        entryFileNames: 'bundle.js',
-        inlineDynamicImports: true,
+    build: {
+      // Don't extract CSS into separate files
+      cssCodeSplit: false,
+      // Disable code splitting entirely
+      target: 'esnext',
+      // Disable minification for both development and production
+      minify: false,
+      rollupOptions: {
+        input: path.resolve(__dirname, 'src/index.tsx'),
+        output: {
+          format: 'iife',
+          entryFileNames: 'bundle.js',
+          inlineDynamicImports: true,
+        },
       },
+      sourcemap: true,
+      // Configure Vite to inline assets under this size threshold
+      assetsInlineLimit: 100000000, // Basically infinite - force inline all assets
     },
-    sourcemap: true,
-    // Configure Vite to inline assets under this size threshold
-    assetsInlineLimit: 100000000, // Basically infinite - force inline all assets
-  },
-  resolve: {
-    extensions: ['.tsx', '.ts', '.js', '.scss', '.css'],
-  },
-})
+    resolve: {
+      extensions: ['.tsx', '.ts', '.js', '.scss', '.css'],
+    },
+  };
+});
