@@ -118,6 +118,22 @@ export default defineConfig(({ mode }) => {
             }
           });
   
+          // Set up file watcher to rebuild bundle when files change
+          const { watcher } = server;
+          watcher.on('change', (path) => {
+            // Check if the changed file is a source file we care about
+            if (/\.(tsx?|jsx?|css|scss|less|vue)$/.test(path)) {
+              console.log(`File changed: ${path}, rebuilding bundle.js...`);
+              try {
+                // Run the build asynchronously to avoid blocking the HMR
+                execSync('yarn build --mode development', { stdio: 'inherit' });
+                console.log('Bundle successfully rebuilt');
+              } catch (err) {
+                console.error('Failed to rebuild bundle:', err);
+              }
+            }
+          });
+
           // Serve the bundle.js file
           server.middlewares.use((req, res, next) => {
             if (req.url === '/bundle.js') {
@@ -127,6 +143,7 @@ export default defineConfig(({ mode }) => {
               try {
                 const stream = fs.createReadStream(bundlePath);
                 res.setHeader('Content-Type', 'application/javascript');
+                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
                 stream.pipe(res);
               } catch (err) {
                 console.error('Error serving bundle.js:', err);
