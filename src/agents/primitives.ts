@@ -31,31 +31,63 @@ export interface Tool {
 }
 
 /**
- * Agent interface - represents an LLM equipped with instructions and tools
+ * Output type definition for structured outputs
+ */
+export interface OutputTypeDefinition {
+  type: string
+  description?: string
+  required?: boolean
+  properties?: Record<string, OutputTypeDefinition>
+  items?: OutputTypeDefinition
+}
+
+/**
+ * Agent interface - represents an LLM-powered agent that can be run
  */
 export interface Agent {
-  // Basic properties
+  // Agent identity
   name: string
-  instructions: string
+  description: string
 
-  // Tools that this agent can use
-  tools?: Tool[]
+  // Optional system prompt override
+  getSystemPrompt?: () => Promise<string>
 
-  // Handoff capabilities
-  handoffDescription?: string
-  handoffs?: Handoff[]
+  // Model settings
+  modelSettings?: {
+    model?: string
+    temperature?: number
+    maxOutputTokens?: number
+    topP?: number
+  }
 
-  // Safety features
+  // Optional output type definition for structured outputs
+  outputType?: Record<string, { type: string; description?: string }>
+
+  // Optional guardrails for input/output
   inputGuardrails?: Guardrail[]
   outputGuardrails?: Guardrail[]
 
-  // Model configuration
-  model?: string
-  modelSettings?: Record<string, unknown>
+  // Optional tools the agent can use
+  tools?: {
+    name: string
+    description: string
+    parameters: Record<
+      string,
+      {
+        type: string
+        description?: string
+        required?: boolean
+        enum?: string[]
+      }
+    >
+    execute: (parameters: Record<string, unknown>) => Promise<unknown>
+  }[]
 
-  // Methods
-  run: (input: string | Message[], context?: RunContext) => Promise<AgentResult>
-  asHandoff: () => Handoff // Convert this agent to a handoff
+  // Optional handoffs this agent can perform
+  handoffs?: Handoff[]
+
+  // Agent handlers
+  handleMessage: (message: string, options?: Record<string, unknown>) => Promise<AgentResult>
 }
 
 /**
@@ -137,7 +169,7 @@ export interface AgentResult {
   handoffPerformed: boolean
 
   // If handoff was performed, which agent was it handed off to
-  handoffAgent?: string
+  handoffAgent?: string | Agent
 
   // The tool calls that were made during the run
   toolCalls?: ToolCall[]

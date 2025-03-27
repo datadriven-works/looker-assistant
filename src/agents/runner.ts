@@ -1,4 +1,12 @@
-import { Agent, AgentResult, Guardrail, GuardrailResult, Message, RunContext } from './primitives'
+import {
+  Agent,
+  AgentResult,
+  Guardrail,
+  GuardrailResult,
+  Message,
+  RunContext,
+  ToolCall,
+} from './primitives'
 
 /**
  * Result of running a single step in the agent loop
@@ -135,6 +143,11 @@ export interface RunHooks {
     result: unknown
   ) => Promise<void>
 }
+
+/**
+ * Tool call interface
+ */
+// Interface moved to imports from primitives
 
 /**
  * Runner class for executing agents and managing their workflows
@@ -455,50 +468,366 @@ export class Runner {
       await hooks.onAgentStart(contextWrapper.context!, agent)
     }
 
-    // In a real implementation, you would:
-    // 1. Get the system prompt
+    // 1. Get the system prompt from the agent
+    const systemPrompt = agent.getSystemPrompt
+      ? await agent.getSystemPrompt()
+      : 'You are a helpful AI assistant.'
+
     // 2. Prepare the input including all generated items
-    // 3. Get the model response
-    // 4. Process the response to determine next steps
-    // 5. Handle tool calls, output generation, or handoffs
+    const messages: Array<{ role: string; content: string }> = []
 
-    // This is a simplified implementation
-    const response = await agent.run(originalInput, contextWrapper.context)
-
-    // Check if this is a final output or if we need another step
-    if (response.handoffPerformed && response.handoffAgent) {
-      // If a handoff was performed, create a handoff next step
-      const handoffAgent = this.getHandoffAgent(response.handoffAgent)
-      return {
-        originalInput,
-        modelResponse: response,
-        generatedItems,
-        nextStep: {
-          type: 'handoff',
-          newAgent: handoffAgent,
-        },
-      }
-    } else if (response.toolCalls && response.toolCalls.length > 0) {
-      // If tool calls were made, add them to generated items and create a run again step
-      const newItems = [...generatedItems, ...response.toolCalls]
-      return {
-        originalInput,
-        modelResponse: response,
-        generatedItems: newItems,
-        nextStep: { type: 'run_again' },
-      }
+    // Format original input as messages
+    if (typeof originalInput === 'string') {
+      messages.push({
+        role: 'user',
+        content: originalInput,
+      })
     } else {
-      // Otherwise, this is a final output
-      return {
-        originalInput,
-        modelResponse: response,
-        generatedItems,
-        nextStep: {
-          type: 'final_output',
-          output: response.finalOutput,
-        },
+      // Add all messages from the input
+      messages.push(...originalInput)
+    }
+
+    // Add all generated items as messages
+    if (generatedItems && generatedItems.length > 0) {
+      // Transform tool calls and results into messages
+      for (const item of generatedItems) {
+        if (typeof item === 'object' && item !== null) {
+          const toolCall = item as Record<string, unknown>
+
+          // Add assistant message for tool call
+          if (toolCall.name) {
+            messages.push({
+              role: 'assistant',
+              content: `I'll help you with that by using the ${String(toolCall.name)} tool.`,
+            })
+
+            // Add tool message with result
+            if (toolCall.result !== undefined) {
+              messages.push({
+                role: 'tool',
+                content: JSON.stringify(toolCall.result),
+              })
+            }
+          }
+        }
       }
     }
+
+    // 3. Use the model to get a response
+    try {
+      // Import the generateContent function
+      const { generateContent } = await import('../hooks/useGenerateContent').then((module) =>
+        module.useGenerateContent()
+      )
+
+      // Prepare tools for the model
+      const formattedTools =
+        agent.tools?.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: Object.entries(tool.parameters).reduce(
+            (acc, [key, def]) => {
+              acc[key] = {
+                type: def.type,
+                description: def.description || '',
+                required: def.required || false,
+                enum: def.enum || undefined,
+              }
+              return acc
+            },
+            {} as Record<
+              string,
+              {
+                type: string
+                description: string
+                required: boolean
+                enum?: string[] | undefined
+              }
+            >
+          ),
+        })) || []
+
+      // Prepare handoffs for the model
+      const handoffTools =
+        agent.handoffs?.map((handoff) => ({
+          name: `handoff_to_${
+            typeof handoff.targetAgent === 'string' ? handoff.targetAgent : handoff.targetAgent.name
+          }`,
+          description: handoff.description,
+          parameters: {
+            reason: {
+              type: 'string',
+              description: 'Reason for handing off to this agent',
+              required: true,
+            },
+          },
+        })) || []
+
+      // Combine all tools
+      const allTools = [...formattedTools, ...handoffTools]
+
+      // Prepare model parameters
+      const modelParameters = {
+        temperature: (agent.modelSettings?.temperature as number) || 0.7,
+        max_output_tokens: (agent.modelSettings?.maxOutputTokens as number) || 4096,
+        top_p: (agent.modelSettings?.topP as number) || 0.95,
+      }
+
+      // Define a response schema if the agent has an output type
+      const responseSchema = agent.outputType
+        ? {
+            type: 'object',
+            properties: agent.outputType,
+            required: Object.keys(agent.outputType || {}),
+          }
+        : null
+
+      // Call the model
+      const modelResponse = await generateContent({
+        contents: messages,
+        parameters: modelParameters,
+        responseSchema,
+        tools: allTools.length > 0 ? allTools : undefined,
+        modelName: agent.modelSettings?.model || 'gemini-1.5-pro',
+        systemInstruction: systemPrompt,
+      })
+
+      // 4. Process the response to determine next steps
+      const processedResponse = await this.processModelResponse(modelResponse, agent)
+
+      // 5. Handle tool calls, output generation, or handoffs
+      if (processedResponse.handoffAgent) {
+        // If there's a handoff, create a handoff next step
+        const handoffAgent = this.getHandoffAgent(processedResponse.handoffAgent)
+        return {
+          originalInput,
+          modelResponse: processedResponse,
+          generatedItems,
+          nextStep: {
+            type: 'handoff',
+            newAgent: handoffAgent,
+          },
+        }
+      } else if (processedResponse.toolCalls && processedResponse.toolCalls.length > 0) {
+        // If there are tool calls, execute them and create a run again step
+        const executedToolCalls = await this.executeToolCalls(
+          processedResponse.toolCalls,
+          agent,
+          hooks,
+          contextWrapper
+        )
+
+        // Add the tool calls to generated items
+        const newItems = [...generatedItems, ...executedToolCalls]
+
+        return {
+          originalInput,
+          modelResponse: processedResponse,
+          generatedItems: newItems,
+          nextStep: { type: 'run_again' },
+        }
+      } else {
+        // Otherwise, this is a final output
+        return {
+          originalInput,
+          modelResponse: processedResponse,
+          generatedItems,
+          nextStep: {
+            type: 'final_output',
+            output: processedResponse.finalOutput,
+          },
+        }
+      }
+    } catch (error) {
+      console.error('Error running model:', error)
+      throw new Error(
+        `Failed to run model: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+  }
+
+  /**
+   * Process the raw model response into a structured format
+   */
+  private static async processModelResponse(
+    modelResponse: unknown,
+    agent: Agent
+  ): Promise<AgentResult> {
+    // Handle different response formats
+    let finalOutput = ''
+    const toolCalls: ToolCall[] = []
+    let handoffAgent: string | Agent | undefined
+
+    try {
+      // Type assertion to access properties
+      const response = modelResponse as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              text?: string
+              functionCall?: {
+                name: string
+                args?: Record<string, unknown>
+              }
+            }>
+            text?: string
+            structuredOutput?: {
+              data?: unknown
+            }
+          }
+        }>
+        text?: string
+      }
+
+      // Check if the response contains tool calls
+      if (response.candidates?.[0]?.content?.parts) {
+        const parts = response.candidates[0].content.parts || []
+
+        // Extract text content
+        const textParts = parts.filter((part) => 'text' in part && part.text !== undefined)
+        if (textParts.length > 0) {
+          finalOutput = textParts.map((part) => part.text || '').join('\n')
+        }
+
+        // Extract function calls
+        const functionParts = parts.filter(
+          (part) => 'functionCall' in part && part.functionCall !== undefined
+        )
+        for (const part of functionParts) {
+          if (part.functionCall) {
+            const functionCall = part.functionCall
+            const name = functionCall.name
+
+            // Check if this is a handoff function call
+            if (name.startsWith('handoff_to_')) {
+              const targetAgentName = name.replace('handoff_to_', '')
+
+              // Find the handoff agent
+              const handoff = agent.handoffs?.find((h) => {
+                const handoffName =
+                  typeof h.targetAgent === 'string' ? h.targetAgent : h.targetAgent.name
+                return handoffName === targetAgentName
+              })
+
+              if (handoff) {
+                handoffAgent = handoff.targetAgent
+              }
+            } else {
+              // Add as a tool call
+              toolCalls.push({
+                name,
+                parameters: functionCall.args || {},
+                result: null, // To be filled after execution
+              })
+            }
+          }
+        }
+      } else if (response.candidates?.[0]?.content?.text) {
+        // Simple text response
+        finalOutput = response.candidates[0].content.text
+      } else if (typeof response.candidates?.[0]?.content === 'string') {
+        // Direct string response
+        finalOutput = response.candidates[0].content as string
+      } else if (response.text) {
+        // Legacy format
+        finalOutput = response.text
+      } else {
+        // Try to extract structured output
+        const structuredOutput = response.candidates?.[0]?.content?.structuredOutput?.data
+        if (structuredOutput) {
+          finalOutput = JSON.stringify(structuredOutput)
+        } else {
+          console.warn('Unrecognized response format:', response)
+          finalOutput = 'Unable to parse model response'
+        }
+      }
+    } catch (error) {
+      console.error('Error processing model response:', error)
+      finalOutput = 'Error processing model response'
+    }
+
+    return {
+      finalOutput,
+      handoffPerformed: !!handoffAgent,
+      handoffAgent,
+      toolCalls,
+      context: undefined,
+    }
+  }
+
+  /**
+   * Execute tool calls and return the results
+   */
+  private static async executeToolCalls(
+    toolCalls: Array<{ name: string; parameters: Record<string, unknown> }>,
+    agent: Agent,
+    hooks: RunHooks,
+    contextWrapper: { context?: RunContext }
+  ): Promise<Array<{ name: string; parameters: Record<string, unknown>; result: unknown }>> {
+    const results = []
+
+    for (const toolCall of toolCalls) {
+      // Find the tool in the agent's tools
+      const tool = agent.tools?.find((t) => t.name === toolCall.name)
+
+      if (tool) {
+        try {
+          // Run the onToolStart hook if it exists
+          if (hooks.onToolStart) {
+            await hooks.onToolStart(
+              contextWrapper.context!,
+              agent,
+              { name: tool.name, description: tool.description },
+              toolCall.parameters
+            )
+          }
+
+          // Execute the tool
+          const result = await tool.execute(toolCall.parameters)
+
+          // Run the onToolEnd hook if it exists
+          if (hooks.onToolEnd) {
+            await hooks.onToolEnd(
+              contextWrapper.context!,
+              agent,
+              { name: tool.name, description: tool.description },
+              toolCall.parameters,
+              result
+            )
+          }
+
+          // Add the result to the tool call
+          results.push({
+            ...toolCall,
+            result,
+          })
+        } catch (error) {
+          console.error(`Error executing tool ${toolCall.name}:`, error)
+
+          // Add the error to the result
+          results.push({
+            ...toolCall,
+            result: {
+              error: true,
+              message: error instanceof Error ? error.message : String(error),
+            },
+          })
+        }
+      } else {
+        console.warn(`Tool ${toolCall.name} not found`)
+
+        // Add a not found error to the result
+        results.push({
+          ...toolCall,
+          result: {
+            error: true,
+            message: `Tool ${toolCall.name} not found`,
+          },
+        })
+      }
+    }
+
+    return results
   }
 
   /**
