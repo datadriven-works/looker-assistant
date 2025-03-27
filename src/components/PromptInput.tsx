@@ -38,7 +38,7 @@ const PromptInput = () => {
       inputRef.current.focus()
     }
   }, [isQuerying])
-  
+
   return (
     <div className="max-w-3xl mx-auto px-8 pt-4 pb-2 bg-white bg-opacity-80 rounded-md">
       <div className="relative flex items-center bg-[rgb(240,244,249)] rounded-full p-2">
@@ -51,16 +51,15 @@ const PromptInput = () => {
           disabled={isQuerying}
           placeholder="Enter a prompt here"
           className={`flex-grow bg-transparent placeholder-gray-400 outline-none pl-4 ${
-            isQuerying
-              ? 'cursor-not-allowed text-gray-500'
-              : 'cursor-text text-gray-800'
+            isQuerying ? 'cursor-not-allowed text-gray-500' : 'cursor-text text-gray-800'
           }`}
         />
         <div className="flex items-center space-x-2">
           <button
             onClick={handleSubmit}
             disabled={isQuerying}
-            className={clsx("p-2 text-white  rounded-full transition-all duration-300 ease-in-out",
+            className={clsx(
+              'p-2 text-white  rounded-full transition-all duration-300 ease-in-out',
               inputText.trim() ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400',
               isQuerying ? 'animate-spin' : ''
             )}
@@ -74,8 +73,7 @@ const PromptInput = () => {
         </div>
       </div>
       <p className="text-xs text-gray-500 my-2 text-center">
-        Gemini may display inaccurate info, including about people, so
-        double-check its responses.
+        Gemini may display inaccurate info, including about people, so double-check its responses.
       </p>
     </div>
   )
