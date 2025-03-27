@@ -1,5 +1,11 @@
+import PromptInput from '../PromptInput'
+
 const ChatSurface = () => {
-  return <div>ChatSurface</div>
+  return (
+    <>
+      <PromptInput />
+    </>
+  )
 }
 
 export default ChatSurface
