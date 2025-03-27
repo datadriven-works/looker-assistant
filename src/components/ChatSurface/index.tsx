@@ -66,7 +66,7 @@ const ChatSurface = () => {
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
   const { generateContent } = useGenerateContent()
 
-  const { query, isQuerying, thread } = useSelector(
+  const { query, isQuerying, thread, user } = useSelector(
     (state: RootState) => state.assistant as AssistantState
   )
 
@@ -98,8 +98,8 @@ const ChatSurface = () => {
     contentList.push(initialMessage)
 
     try {
-      // Process the query with our agent system, passing the generateContent function
-      const responseText = await processAgentQuery(query, generateContent)
+      // Process the query with our agent system, passing the generateContent function and user data
+      const responseText = await processAgentQuery(query, generateContent, user)
 
       const responseMessage: TextMessage = {
         uuid: uuidv4(),
@@ -145,7 +145,7 @@ const ChatSurface = () => {
 
     // scroll to bottom of message thread
     scrollIntoView()
-  }, [dispatch, query, thread?.messages, generateContent])
+  }, [dispatch, query, thread?.messages, generateContent, user])
 
   useEffect(() => {
     if (!query || query === '') {

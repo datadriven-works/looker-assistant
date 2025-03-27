@@ -4,6 +4,7 @@ import {
   GENERAL_KNOWLEDGE_AGENT_CONFIG,
   DEBUG_ENABLED,
 } from './config'
+import { User } from '../slices/assistantSlice'
 
 /**
  * Represents the supported agent types
@@ -32,8 +33,27 @@ Do not include any explanation or additional text in your response.`
 
 /**
  * Creates the system prompt for the user information agent
+ *
+ * @param user - The user object from the store
  */
-function createUserInfoSystemPrompt(): string {
+function createUserInfoSystemPrompt(user: User | null): string {
+  let userInfoSection = ''
+
+  if (user) {
+    userInfoSection = `
+Here is the available information about the current user:
+- User ID: ${user.id}
+- Name: ${user.first_name} ${user.last_name}
+- Email: ${user.email}
+- Group IDs: ${user.group_ids.join(', ')}
+
+Use this information when responding to user-specific queries.`
+  } else {
+    userInfoSection = `
+No specific user information is currently available. If needed for the query, 
+politely ask the user to provide the necessary details.`
+  }
+
   return `You are a specialized User Information Agent that handles queries about user-specific data.
 Your focus is on responding to questions about the user's:
 - Account information
@@ -41,6 +61,7 @@ Your focus is on responding to questions about the user's:
 - Usage history
 - Preferences
 - Other user-specific information
+${userInfoSection}
 
 Provide personalized, specific answers when you have the information required.
 If you don't have enough information to answer a user-specific question, politely explain that you'll need more details.
@@ -71,6 +92,7 @@ When responding, use a clear, informative, and educational tone.`
  *
  * @param query The user's query
  * @param generateContent The function to use for content generation
+ * @param user The user object from the store
  * @returns A response from the appropriate agent
  */
 export async function processAgentQuery(
@@ -80,7 +102,8 @@ export async function processAgentQuery(
     tools?: Array<Record<string, unknown>>
     systemInstruction?: string
     parameters?: Record<string, unknown>
-  }) => Promise<Array<{ text?: string }>>
+  }) => Promise<Array<{ text?: string }>>,
+  user: User | null = null
 ): Promise<string> {
   try {
     // Step 1: Determine agent type with triage agent
@@ -112,7 +135,7 @@ export async function processAgentQuery(
 
     // Determine which agent to use based on triage result
     if (agentTypeStr === 'USER_INFO') {
-      systemPrompt = createUserInfoSystemPrompt()
+      systemPrompt = createUserInfoSystemPrompt(user)
       parameters = {
         temperature: USER_INFO_AGENT_CONFIG.temperature,
       }
@@ -154,7 +177,7 @@ export function getAgentSystemInfo(): string {
   return `Agent System Structure:
   
 - Triage Agent: Routes queries to specialized agents
-- User Information Agent: Handles user-specific queries
+- User Information Agent: Handles user-specific queries with access to user data from the store
 - General Knowledge Agent: Handles general knowledge queries
 
 The system uses your existing generateContent function to communicate with the model.`
