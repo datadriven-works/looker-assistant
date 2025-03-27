@@ -13,11 +13,17 @@ import {
 import { RootState } from '../../store'
 import { v4 as uuidv4 } from 'uuid'
 import { useGenerateContent } from '../../hooks/useGenerateContent'
+import { processAgentQuery } from '../../agents'
+
+type HistoryItem = {
+  role: string
+  parts: Array<string | Record<string, unknown>>
+}
 
 const generateHistory = (messages: ChatMessage[]) => {
-  const history: any[] = []
+  const history: HistoryItem[] = []
   messages.forEach((oneMessage: ChatMessage) => {
-    const parts = []
+    const parts: Array<string | Record<string, unknown>> = []
     let role = ''
     if (oneMessage.type === 'functionCall') {
       role = 'model'
@@ -91,38 +97,55 @@ const ChatSurface = () => {
     const contentList: ChatMessage[] = [...(thread?.messages || [])]
     contentList.push(initialMessage)
 
-    const tools: any[] = []
-    const systemInstruction = ''
+    try {
+      // Process the query with our agent system, passing the generateContent function
+      const responseText = await processAgentQuery(query, generateContent)
 
-    const response = await generateContent({
-      contents: generateHistory(contentList),
-      tools,
-      systemInstruction,
-    })
-
-    // Process any textual responses
-    let responseText = ''
-    response.forEach((oneResponse: any) => {
-      if (oneResponse.text) {
-        responseText += oneResponse.text
+      const responseMessage: TextMessage = {
+        uuid: uuidv4(),
+        message: responseText,
+        actor: 'model',
+        createdAt: Date.now(),
+        type: 'text',
       }
-    })
+      dispatch(addMessage(responseMessage))
+    } catch (error) {
+      console.error('Error processing with agent system:', error)
 
-    const responseMessage: TextMessage = {
-      uuid: uuidv4(),
-      message: responseText,
-      actor: 'model',
-      createdAt: Date.now(),
-      type: 'text',
+      // Fallback to the original content generation if agent system fails
+      const tools: Array<Record<string, unknown>> = []
+      const systemInstruction = ''
+
+      const response = await generateContent({
+        contents: generateHistory(contentList),
+        tools,
+        systemInstruction,
+      })
+
+      // Process any textual responses
+      let responseText = ''
+      response.forEach((oneResponse: { text?: string }) => {
+        if (oneResponse.text) {
+          responseText += oneResponse.text
+        }
+      })
+
+      const responseMessage: TextMessage = {
+        uuid: uuidv4(),
+        message: responseText,
+        actor: 'model',
+        createdAt: Date.now(),
+        type: 'text',
+      }
+      dispatch(addMessage(responseMessage))
     }
-    dispatch(addMessage(responseMessage))
 
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
 
     // scroll to bottom of message thread
     scrollIntoView()
-  }, [dispatch, query])
+  }, [dispatch, query, thread?.messages, generateContent])
 
   useEffect(() => {
     if (!query || query === '') {
