@@ -13,7 +13,6 @@ import {
 import { RootState } from '../../store'
 import { v4 as uuidv4 } from 'uuid'
 import { useGenerateContent } from '../../hooks/useGenerateContent'
-import { processAgentQuery } from '../../agents'
 
 type HistoryItem = {
   role: string
@@ -99,7 +98,7 @@ const ChatSurface = () => {
 
     try {
       // Process the query with our agent system, passing the generateContent function and user data
-      const responseText = await processAgentQuery(query, generateContent, user)
+      const responseText = await processQueryWithGraph(query, generateContent, user)
 
       const responseMessage: TextMessage = {
         uuid: uuidv4(),
