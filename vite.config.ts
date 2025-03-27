@@ -27,38 +27,38 @@ const forceCssInline: Plugin = {
   enforce: 'post',
   generateBundle(options, bundle) {
     // Find all CSS chunks (including processed SCSS and PostCSS)
-    const cssAssets = Object.keys(bundle).filter(name => name.endsWith('.css'));
+    const cssAssets = Object.keys(bundle).filter(name => name.endsWith('.css'))
     
     // Find the entry JavaScript chunk
     const entryChunk = Object.values(bundle).find(
       (chunk): chunk is OutputChunk => chunk.type === 'chunk' && 'isEntry' in chunk && chunk.isEntry
-    );
+    )
     
-    if (!entryChunk) return;
+    if (!entryChunk) return
     
     // Inject CSS directly into the entry JavaScript
     for (const cssName of cssAssets) {
-      const cssAsset = bundle[cssName];
+      const cssAsset = bundle[cssName]
       if (cssAsset.type === 'asset') {
         // Create JS to inject the CSS
-        const cssContent = cssAsset.source.toString();
+        const cssContent = cssAsset.source.toString()
         const cssInjection = `
           (function() {
             var style = document.createElement('style');
             style.textContent = ${JSON.stringify(cssContent)};
             document.head.appendChild(style);
           })();
-        `;
+        `
         
         // Append to the entry chunk
-        entryChunk.code = entryChunk.code + cssInjection;
+        entryChunk.code = entryChunk.code + cssInjection
         
         // Remove the CSS asset
-        delete bundle[cssName];
+        delete bundle[cssName]
       }
     }
   }
-};
+}
 
 // CORS plugin to ensure CORS is always enabled in development
 const corsPlugin: Plugin = {
@@ -68,22 +68,22 @@ const corsPlugin: Plugin = {
     // Add CORS headers to all responses in development
     server.middlewares.use((req, res, next) => {
       // Allow requests from any origin in development for easier debugging
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-looker-appid');
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-looker-appid')
+      res.setHeader('Access-Control-Allow-Credentials', 'true')
       
       // Handle preflight OPTIONS requests
       if (req.method === 'OPTIONS') {
-        res.statusCode = 204;
-        res.end();
-        return;
+        res.statusCode = 204
+        res.end()
+        return
       }
       
-      next();
-    });
+      next()
+    })
   }
-};
+}
 
 // Simple plugin to serve bundle.js for Looker extension development
 const lookerBundlePlugin: Plugin = {
@@ -92,41 +92,41 @@ const lookerBundlePlugin: Plugin = {
   configureServer(server) {
     // Build a production bundle to get the compiled code
     server.httpServer?.once('listening', () => {
-      console.log('Building production bundle for Looker extension...');
+      console.log('Building production bundle for Looker extension...')
       try {
-        execSync('yarn build --mode production', { stdio: 'inherit' });
-        console.log('Bundle successfully built - available at http://localhost:8080/bundle.js');
-        console.log('To see changes, manually refresh your Looker extension after editing files.');
+        execSync('yarn build --mode production', { stdio: 'inherit' })
+        console.log('Bundle successfully built - available at http://localhost:8080/bundle.js')
+        console.log('To see changes, manually refresh your Looker extension after editing files.')
       } catch (err) {
-        console.error('Failed to build bundle:', err);
+        console.error('Failed to build bundle:', err)
       }
-    });
+    })
     
     // Serve a completely self-contained bundle.js
     server.middlewares.use((req, res, next) => {
       if (req.url === '/bundle.js') {
-        console.log('Serving bundle.js for Looker extension');
+        console.log('Serving bundle.js for Looker extension')
         
-        const bundlePath = path.resolve(__dirname, 'dist/bundle.js');
+        const bundlePath = path.resolve(__dirname, 'dist/bundle.js')
         
         if (!fs.existsSync(bundlePath)) {
-          res.statusCode = 404;
-          res.end('Bundle not found. Please wait for the build to complete or run "yarn build" manually.');
-          return;
+          res.statusCode = 404
+          res.end('Bundle not found. Please wait for the build to complete or run "yarn build" manually.')
+          return
         }
         
         // Get the host from request headers
-        const host = req.headers.host || 'localhost:8080';
-        const protocol = req.headers.referer?.startsWith('https') ? 'https' : 'http';
-        const fullHostUrl = `${protocol}://${host}`;
+        const host = req.headers.host || 'localhost:8080'
+        const protocol = req.headers.referer?.startsWith('https') ? 'https' : 'http'
+        const fullHostUrl = `${protocol}://${host}`
         
         try {
           // Read the compiled bundle
-          const bundleContent = fs.readFileSync(bundlePath, 'utf8');
+          const bundleContent = fs.readFileSync(bundlePath, 'utf8')
           
           // Set appropriate headers
-          res.setHeader('Content-Type', 'application/javascript');
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Content-Type', 'application/javascript')
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
           
           // Create a wrapper with automatic refresh on changes
           const finalBundle = `
@@ -158,79 +158,79 @@ const lookerBundlePlugin: Plugin = {
               
               console.log('[HMR] Change detection enabled for Looker extension');
             })();
-          `;
+          `
           
-          res.end(finalBundle);
+          res.end(finalBundle)
         } catch (err: any) {
-          console.error('Error serving bundle.js:', err);
-          res.statusCode = 500;
-          res.end('Error serving bundle.js: ' + err.message);
+          console.error('Error serving bundle.js:', err)
+          res.statusCode = 500
+          res.end('Error serving bundle.js: ' + err.message)
         }
         
-        return;
+        return
       }
       
       // Serve the bundle version timestamp
       if (req.url?.startsWith('/bundle-version')) {
-        const bundlePath = path.resolve(__dirname, 'dist/bundle.js');
-        let timestamp = Date.now(); // Default to current time
+        const bundlePath = path.resolve(__dirname, 'dist/bundle.js')
+        let timestamp = Date.now() // Default to current time
         
         if (fs.existsSync(bundlePath)) {
           // Get the actual file modification time
-          const stats = fs.statSync(bundlePath);
-          timestamp = stats.mtimeMs;
+          const stats = fs.statSync(bundlePath)
+          timestamp = stats.mtimeMs
         }
         
-        res.setHeader('Content-Type', 'text/plain');
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.end(timestamp.toString());
-        return;
+        res.setHeader('Content-Type', 'text/plain')
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+        res.end(timestamp.toString())
+        return
       }
       
-      next();
-    });
+      next()
+    })
     
     // Watch for changes and rebuild the bundle
-    const { watcher } = server;
-    let isRebuilding = false;
-    let rebuildTimeout: NodeJS.Timeout | null = null;
+    const { watcher } = server
+    let isRebuilding = false
+    let rebuildTimeout: NodeJS.Timeout | null = null
     
     const rebuildBundle = () => {
-      if (isRebuilding) return;
+      if (isRebuilding) return
       
-      isRebuilding = true;
-      console.log('Rebuilding bundle.js after changes...');
+      isRebuilding = true
+      console.log('Rebuilding bundle.js after changes...')
       
       try {
-        execSync('yarn build --mode production', { stdio: 'inherit' });
-        console.log('Bundle successfully rebuilt.');
-        console.log('Refresh your Looker extension to see the changes.');
+        execSync('yarn build --mode production', { stdio: 'inherit' })
+        console.log('Bundle successfully rebuilt.')
+        console.log('Refresh your Looker extension to see the changes.')
       } catch (err) {
-        console.error('Failed to rebuild bundle:', err);
+        console.error('Failed to rebuild bundle:', err)
       } finally {
-        isRebuilding = false;
+        isRebuilding = false
       }
-    };
+    }
     
     watcher.on('change', (filePath) => {
       if (/\.(tsx?|jsx?|css|scss|less|vue)$/.test(filePath)) {
-        console.log(`File changed: ${filePath}, scheduling bundle rebuild...`);
+        console.log(`File changed: ${filePath}, scheduling bundle rebuild...`)
         
         // Clear previous timeout
         if (rebuildTimeout) {
-          clearTimeout(rebuildTimeout);
+          clearTimeout(rebuildTimeout)
         }
         
         // Schedule rebuild with debounce
-        rebuildTimeout = setTimeout(rebuildBundle, 1000);
+        rebuildTimeout = setTimeout(rebuildBundle, 1000)
       }
-    });
+    })
   }
-};
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const isDevelopment = mode === 'development';
+  const isDevelopment = mode === 'development'
   
   return {
     plugins: [
@@ -291,5 +291,5 @@ export default defineConfig(({ mode }) => {
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.scss', '.css'],
     },
-  };
-});
+  }
+})

@@ -1,54 +1,46 @@
 import js from '@eslint/js'
 import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
-import reactPlugin from 'eslint-plugin-react'
-import jsxA11y from 'eslint-plugin-jsx-a11y'
-import tseslint from 'typescript-eslint'
+import { FlatCompat } from '@eslint/eslintrc'
 
-export default tseslint.config(
-  { ignores: ['dist'] },
+// Create compat instance
+const compat = new FlatCompat()
+
+export default [
+  // Ignore patterns
+  { ignores: ['dist/**'] },
+  
+  // Base JS config
+  js.configs.recommended,
+  
+  // Base configs with compat layer
+  ...compat.config({
+    extends: [
+      'plugin:@typescript-eslint/recommended',
+      'plugin:react/recommended',
+      'plugin:react-hooks/recommended',
+      'plugin:jsx-a11y/recommended'
+    ]
+  }),
+  
+  // Apply to all supported files
   {
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ['**/*.{ts,tsx,js,jsx}'],
+    files: ['**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2022,
+      sourceType: 'module',
       globals: {
         ...globals.browser,
-        ...globals.node,
-      },
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-    },
-    plugins: {
-      'react': reactPlugin,
-      'react-hooks': reactHooks,
-      'react-refresh': reactRefresh,
-      'jsx-a11y': jsxA11y,
+        ...globals.node
+      }
     },
     rules: {
-      ...reactHooks.configs.recommended.rules,
-      ...reactPlugin.configs.recommended.rules,
-      ...jsxA11y.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
-      'react/jsx-uses-react': 'error',
-      'react/jsx-uses-vars': 'error',
-      'react/react-in-jsx-scope': 'off', // Not needed with new JSX transform
-      'jsx-a11y/anchor-is-valid': ['warn', {
-        'components': ['Link'],
-        'specialLink': ['to'],
-      }],
+      'react/react-in-jsx-scope': 'off',
+      'semi': ['error', 'never']
     },
     settings: {
       react: {
-        version: 'detect',
-      },
-    },
-  },
-)
+        version: 'detect'
+      }
+    }
+  }
+]
