@@ -87,16 +87,9 @@ const ChatSurface = () => {
       type: 'text',
     }
     dispatch(addMessage(initialMessage))
-
-    const responseMessage: TextMessage = {
-      uuid: uuidv4(),
-      message: 'Echo: ' + query,
-      actor: 'model',
-      createdAt: Date.now(),
-      type: 'text',
-    }
-    dispatch(addMessage(responseMessage))
     const contentList: ChatMessage[] = [...(thread?.messages || [])]
+    contentList.push(initialMessage)
+
     const tools: any[] = []
     const systemInstruction = ''
 
@@ -106,7 +99,22 @@ const ChatSurface = () => {
       systemInstruction,
     })
 
-    console.log(response)
+    // Process any textual responses
+    let responseText = ''
+    response.forEach((oneResponse: any) => {
+      if (oneResponse.text) {
+        responseText += oneResponse.text
+      }
+    })
+
+    const responseMessage: TextMessage = {
+      uuid: uuidv4(),
+      message: responseText,
+      actor: 'model',
+      createdAt: Date.now(),
+      type: 'text',
+    }
+    dispatch(addMessage(responseMessage))
 
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
