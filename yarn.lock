@@ -2178,6 +2178,9 @@ __metadata:
     eslint-plugin-react: "npm:^7.37.4"
     eslint-plugin-react-hooks: "npm:^5.2.0"
     eslint-plugin-react-refresh: "npm:^0.4.6"
+    highlight.js: "npm:^11.11.1"
+    marked: "npm:^15.0.7"
+    marked-highlight: "npm:^2.2.1"
     postcss: "npm:^8.5.3"
     react: "npm:^18.2.0"
     react-dom: "npm:^18.2.0"
@@ -3282,6 +3285,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"highlight.js@npm:^11.11.1":
+  version: 11.11.1
+  resolution: "highlight.js@npm:11.11.1"
+  checksum: 10/205272f12f2c8ab1760452a75c58b043b11129cf3a5d2a9c0c90d43993580d0f5c385a73a4b8aba197eef20c0ec37d64000e6b35c4ed5991324f4c2dc78f4e43
+  languageName: node
+  linkType: hard
+
 "history@npm:^4.10.1, history@npm:^4.9.0":
   version: 4.10.1
   resolution: "history@npm:4.10.1"
@@ -3952,6 +3962,24 @@ __metadata:
     promise-retry: "npm:^2.0.1"
     ssri: "npm:^12.0.0"
   checksum: 10/fce0385840b6d86b735053dfe941edc2dd6468fda80fe74da1eeff10cbd82a75760f406194f2bc2fa85b99545b2bc1f84c08ddf994b21830775ba2d1a87e8bdf
+  languageName: node
+  linkType: hard
+
+"marked-highlight@npm:^2.2.1":
+  version: 2.2.1
+  resolution: "marked-highlight@npm:2.2.1"
+  peerDependencies:
+    marked: ">=4 <16"
+  checksum: 10/430d96113a4cffd5ee4a5a663fc948f8085a8f0c861f2f04d1390fe3d0499b3a6472268de6c520cac55d9f821817a70fcfb575425888a6efb2e66235893250d5
+  languageName: node
+  linkType: hard
+
+"marked@npm:^15.0.7":
+  version: 15.0.7
+  resolution: "marked@npm:15.0.7"
+  bin:
+    marked: bin/marked.js
+  checksum: 10/df4c3e91420bfa76250390813ce6881a3dad73b40d51d14cece1aff63a2828a171e7f1d3d99cdca70088cb305215ba79fce31bb9ce38cd03c360c788e2994a6a
   languageName: node
   linkType: hard
 

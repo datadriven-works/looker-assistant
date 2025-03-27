@@ -72,36 +72,33 @@ export interface AssistantState {
   user: User | null
   sidePanel: {
     isSidePanelOpen: boolean
-    exploreParams: ExploreParams
   }
-  history: Thread[]
+  thread: Thread
   semanticModels: {
     [exploreKey: string]: SemanticModel
   }
   query: string
-  settings: Settings,
-  isMetadataLoaded: boolean,
+  settings: Settings
+  isMetadataLoaded: boolean
   isSemanticModelLoaded: boolean
 }
 
 export const newThreadState = () => {
-  const thread: Thread = {    
+  const thread: Thread = {
     uuid: uuidv4(),
     messages: [],
-    createdAt: Date.now()
+    createdAt: Date.now(),
   }
   return thread
 }
-
 
 export const initialState: AssistantState = {
   isQuerying: false,
   user: null,
   sidePanel: {
     isSidePanelOpen: false,
-    exploreParams: {},
   },
-  history: [],
+  thread: newThreadState(),
   query: '',
   semanticModels: {},
   settings: {
@@ -112,7 +109,7 @@ export const initialState: AssistantState = {
     },
   },
   isMetadataLoaded: false,
-  isSemanticModelLoaded: false
+  isSemanticModelLoaded: false,
 }
 
 export const assistantSlice = createSlice({
@@ -128,17 +125,11 @@ export const assistantSlice = createSlice({
     resetSettings: (state) => {
       state.settings = initialState.settings
     },
-    setSetting: (
-      state,
-      action: PayloadAction<{ id: keyof Settings; value: boolean }>,
-    ) => {
+    setSetting: (state, action: PayloadAction<{ id: keyof Settings; value: boolean }>) => {
       const { id, value } = action.payload
       if (state.settings[id]) {
         state.settings[id].value = value
       }
-    },
-    clearHistory : (state) => {
-      state.history = []
     },
     setUser: (state, action: PayloadAction<User>) => {
       state.user = action.payload
@@ -154,12 +145,9 @@ export const assistantSlice = createSlice({
       if (action.payload.uuid === undefined) {
         action.payload.uuid = uuidv4()
       }
-      state.history.push(action.payload)
+      state.thread.messages.push(action.payload)
     },
-    setIsMetadataLoaded: (
-      state, 
-      action: PayloadAction<boolean>
-    ) => {
+    setIsMetadataLoaded: (state, action: PayloadAction<boolean>) => {
       state.isMetadataLoaded = action.payload
     },
     setIsSemanticModelLoaded: (state, action: PayloadAction<boolean>) => {
@@ -170,7 +158,6 @@ export const assistantSlice = createSlice({
 
 export const {
   setIsQuerying,
-  clearHistory,
   setQuery,
   resetChat,
   addMessage,

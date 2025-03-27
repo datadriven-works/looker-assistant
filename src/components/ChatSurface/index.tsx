@@ -2,9 +2,15 @@ import Thread from '../Thread'
 import PromptInput from '../PromptInput'
 import { useDispatch, useSelector } from 'react-redux'
 import { useCallback, useEffect, useRef } from 'react'
-import { AssistantState, setIsQuerying, setQuery } from '../../slices/assistantSlice'
+import {
+  addMessage,
+  AssistantState,
+  setIsQuerying,
+  setQuery,
+  TextMessage,
+} from '../../slices/assistantSlice'
 import { RootState } from '../../store'
-
+import { v4 as uuidv4 } from 'uuid'
 const ChatSurface = () => {
   const dispatch = useDispatch()
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
@@ -26,7 +32,23 @@ const ChatSurface = () => {
 
     dispatch(setQuery(query))
 
-    // PROCESS THE QUERY
+    const initialMessage: TextMessage = {
+      uuid: uuidv4(),
+      message: query,
+      actor: 'user',
+      createdAt: Date.now(),
+      type: 'text',
+    }
+    dispatch(addMessage(initialMessage))
+
+    const responseMessage: TextMessage = {
+      uuid: uuidv4(),
+      message: 'Echo: ' + query,
+      actor: 'model',
+      createdAt: Date.now(),
+      type: 'text',
+    }
+    dispatch(addMessage(responseMessage))
 
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
