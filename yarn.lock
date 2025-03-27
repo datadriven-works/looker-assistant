@@ -1310,6 +1310,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/crypto-js@npm:^4":
+  version: 4.2.2
+  resolution: "@types/crypto-js@npm:4.2.2"
+  checksum: 10/a40fc5a9219fd33f54ba3e094c5e5ab2904d3106681a76f1029bb038976591e9c8959099963bf4474fde21c2d8d00c1f896445206a3a58f85588f9cb1bd96a9a
+  languageName: node
+  linkType: hard
+
 "@types/eslint-plugin-jsx-a11y@npm:^6":
   version: 6.10.0
   resolution: "@types/eslint-plugin-jsx-a11y@npm:6.10.0"
@@ -2127,6 +2134,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"crypto-js@npm:^4.2.0":
+  version: 4.2.0
+  resolution: "crypto-js@npm:4.2.0"
+  checksum: 10/c7bcc56a6e01c3c397e95aa4a74e4241321f04677f9a618a8f48a63b5781617248afb9adb0629824792e7ec20ca0d4241a49b6b2938ae6f973ec4efc5c53c924
+  languageName: node
+  linkType: hard
+
 "cssesc@npm:^3.0.0":
   version: 3.0.0
   resolution: "cssesc@npm:3.0.0"
@@ -2162,6 +2176,7 @@ __metadata:
     "@mui/material": "npm:^7.0.0"
     "@mui/utils": "npm:^7.0.0"
     "@reduxjs/toolkit": "npm:^2.6.1"
+    "@types/crypto-js": "npm:^4"
     "@types/eslint-plugin-jsx-a11y": "npm:^6"
     "@types/node": "npm:^22.13.13"
     "@types/react": "npm:^18.2.66"
@@ -2172,6 +2187,7 @@ __metadata:
     "@vitejs/plugin-react": "npm:^4.2.1"
     autoprefixer: "npm:^10.4.21"
     clsx: "npm:^2.1.1"
+    crypto-js: "npm:^4.2.0"
     dotenv: "npm:^16.4.7"
     eslint: "npm:^8.57.0"
     eslint-plugin-jsx-a11y: "npm:^6.10.2"
