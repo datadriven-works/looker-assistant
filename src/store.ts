@@ -2,12 +2,7 @@ import { configureStore, Reducer } from '@reduxjs/toolkit'
 import { persistStore, persistReducer, createTransform } from 'redux-persist'
 import storage from 'redux-persist/lib/storage' // defaults to localStorage for web
 import { combineReducers } from 'redux'
-import assistantReducer, {
-  AssistantState,
-  initialState,
-  Settings,
-} from './slices/assistantSlice'
-
+import assistantReducer, { AssistantState, initialState, Settings } from './slices/assistantSlice'
 
 // Define keys that should never be persisted
 const neverPersistKeys: (keyof AssistantState)[] = [
@@ -59,7 +54,7 @@ const filterTransform = createTransform(
       return mergedState
     }
     return outboundState
-  },
+  }
 )
 
 const persistConfig = {
@@ -71,7 +66,7 @@ const persistConfig = {
 }
 
 const rootReducer: Reducer<{
-  assistant: AssistantState;
+  assistant: AssistantState
 }> = (state, action) => {
   if (state === undefined) {
     return { assistant: initialState }
