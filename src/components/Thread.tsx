@@ -43,7 +43,7 @@ const Thread = ({ endOfMessagesRef }: ThreadProps) => {
         }
       })}
       {isQuerying && (
-        <div className="flex flex-col text-gray-300 size-8">
+        <div className="flex flex-col text-gray-300 size-8 w-64">
           <LinearProgress />
         </div>
       )}

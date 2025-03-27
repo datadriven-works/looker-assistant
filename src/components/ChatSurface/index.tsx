@@ -78,6 +78,7 @@ const ChatSurface = () => {
     }
 
     dispatch(setQuery(query))
+    dispatch(setIsQuerying(true))
 
     const initialMessage: TextMessage = {
       uuid: uuidv4(),
@@ -133,18 +134,18 @@ const ChatSurface = () => {
   }, [query])
 
   return (
-    <>
-      <div className="flex-grow overflow-y-auto max-h-full mb-36 ">
+    <div className="flex flex-col h-screen">
+      <div className="flex-grow overflow-y-auto max-h-full">
         <div className="max-w-4xl mx-auto mt-8">
           <Thread endOfMessagesRef={endOfMessagesRef} />
         </div>
       </div>
       <div
-        className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4/5  transition-all duration-300 ease-in-out mb-10`}
+        className={`flex justify-center duration-300 ease-in-out py-5 bg-gray-50 border-t border-gray-200 shadow-t-sm`}
       >
         <PromptInput />
       </div>
-    </>
+    </div>
   )
 }
 
