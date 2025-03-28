@@ -223,7 +223,7 @@ const ChatSurface = () => {
 
       // Use the Runner to process the query with conversation history context
       const result = await Runner.run(basicAgent, messages, {
-        maxTurns: 3, // Allow a few turns for tool usage
+        maxTurns: 10, // Allow a few turns for tool usage
         context: {
           originalQuery: query,
           messages: messages,

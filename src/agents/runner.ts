@@ -65,6 +65,14 @@ interface GuardrailCheckResult {
   output: GuardrailResult
 }
 
+export interface GeminiModelResponse {
+  text?: string
+  functionCall?: {
+    name: string
+    args: Record<string, unknown>
+  }
+}
+
 /**
  * Error thrown when a guardrail tripwire is triggered
  */
@@ -522,7 +530,7 @@ export class Runner {
       // Get the generateContent function from context
       const generateContent = contextWrapper.context?.state?.generateContent as (
         params: GenerateContentParams
-      ) => Promise<unknown>
+      ) => Promise<ModelResponse>
 
       if (!generateContent) {
         throw new Error('generateContent function not provided in context')
@@ -635,34 +643,37 @@ export class Runner {
    * Process the raw model response into a structured format
    */
   private static async processModelResponse(
-    modelResponse: unknown,
+    modelResponse: GeminiModelResponse[],
     agent: Agent
   ): Promise<AgentResult> {
     // Handle different response formats
     let finalOutput = ''
-    const toolCalls: ToolCall[] = []
+    let toolCalls: ToolCall[] = []
     let handoffAgent: string | Agent | undefined
 
     try {
-      // Type assertion to access properties
-      const response = modelResponse as Array<{
-        text?: string
-        functionCall?: any
-      }>
-
       // Process any textual responses
       let responseText = ''
-      response.forEach((oneResponse: any) => {
+      modelResponse.forEach((oneResponse: GeminiModelResponse) => {
         if (oneResponse.text) {
           responseText += oneResponse.text
         }
       })
 
+      // Find function calls in the response
+      toolCalls = modelResponse
+        .filter((oneResponse: GeminiModelResponse) => oneResponse.functionCall !== undefined)
+        .map((oneResponse: GeminiModelResponse) => ({
+          name: oneResponse.functionCall?.name || '',
+          parameters: oneResponse.functionCall?.args || {},
+          result: null,
+        }))
+
       if (responseText && responseText.trim() !== '') {
         // Legacy format
         finalOutput = responseText
       } else {
-        console.warn('Unrecognized response format:', response)
+        console.warn('Unrecognized response format:', modelResponse)
         finalOutput = 'Unable to parse model response'
       }
     } catch (error) {

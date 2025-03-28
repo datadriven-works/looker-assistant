@@ -3,6 +3,7 @@
  */
 
 import { GenerateContentParams } from '../hooks/useGenerateContent'
+import { GeminiModelResponse } from './runner'
 
 /**
  * Message interface for conversation history
@@ -37,7 +38,7 @@ export interface Tool {
       required?: string[]
     }
   >
-  execute: (params: Record<string, unknown>) => Promise<unknown>
+  execute: (params: Record<string, unknown>) => Promise<GeminiModelResponse[]>
 }
 
 /**
@@ -147,7 +148,7 @@ export interface RunContext {
   // Custom data that can be accessed by agents, tools, and guardrails
   state?: Record<string, unknown> & {
     // Generate content function that can be used by the Runner
-    generateContent?: (params: GenerateContentParams) => Promise<unknown>
+    generateContent?: (params: GenerateContentParams) => Promise<GeminiModelResponse[]>
 
     // Any other state properties
     [key: string]: unknown
