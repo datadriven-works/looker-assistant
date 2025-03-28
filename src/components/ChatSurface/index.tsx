@@ -208,7 +208,7 @@ const ChatSurface = () => {
       const messages = contentList.map((msg) => {
         if (msg.type === 'text') {
           return {
-            role: msg.actor === 'user' ? 'user' : 'assistant',
+            role: msg.actor === 'user' ? 'user' : 'model',
             content: msg.message,
           }
         }

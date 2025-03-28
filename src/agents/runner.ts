@@ -250,6 +250,8 @@ export class Runner {
         originalInput = turnResult.originalInput
         generatedItems = turnResult.generatedItems
 
+        console.log('turnResult', turnResult)
+
         if (turnResult.nextStep.type === 'final_output') {
           try {
             await this.runOutputGuardrails(
@@ -498,39 +500,12 @@ export class Runner {
 
     console.log('originalInput', originalInput)
     console.log('messages', messages)
-
-    // Add all generated items as messages
-    if (generatedItems && generatedItems.length > 0) {
-      // Transform tool calls and results into messages
-      for (const item of generatedItems) {
-        if (typeof item === 'object' && item !== null) {
-          const toolCall = item as Record<string, unknown>
-
-          // Add assistant message for tool call
-          if (toolCall.name) {
-            messages.push({
-              role: 'model',
-              parts: [`I'll help you with that by using the ${String(toolCall.name)} tool.`],
-            })
-
-            // Add tool message with result
-            if (toolCall.result !== undefined) {
-              messages.push({
-                role: 'model',
-                parts: [JSON.stringify(toolCall.result)],
-              })
-            }
-          }
-        }
-      }
-    }
-
     // 3. Use the model to get a response
     try {
       // Get the generateContent function from context
       const generateContent = contextWrapper.context?.state?.generateContent as (
         params: GenerateContentParams
-      ) => Promise<ModelResponse>
+      ) => Promise<GeminiModelResponse[]>
 
       if (!generateContent) {
         throw new Error('generateContent function not provided in context')
@@ -581,7 +556,7 @@ export class Runner {
         parameters: modelParameters,
         responseSchema,
         tools: allTools.length > 0 ? allTools : undefined,
-        modelName: agent.modelSettings?.model || 'gemini-1.5-pro',
+        modelName: agent.modelSettings?.model || 'gemini-2.0-flash',
         systemInstruction: systemPrompt,
       })
 
@@ -590,6 +565,7 @@ export class Runner {
 
       // 5. Handle tool calls, output generation, or handoffs
       if (processedResponse.handoffAgent) {
+        console.log('handoffAgent', processedResponse.handoffAgent)
         // If there's a handoff, create a handoff next step
         const handoffAgent = this.getHandoffAgent(processedResponse.handoffAgent)
         return {
@@ -602,6 +578,7 @@ export class Runner {
           },
         }
       } else if (processedResponse.toolCalls && processedResponse.toolCalls.length > 0) {
+        console.log('toolCalls', processedResponse.toolCalls)
         // If there are tool calls, execute them and create a run again step
         const executedToolCalls = await this.executeToolCalls(
           processedResponse.toolCalls,
@@ -610,8 +587,12 @@ export class Runner {
           contextWrapper
         )
 
+        console.log('executedToolCalls', executedToolCalls)
+
         // Add the tool calls to generated items
         const newItems = [...generatedItems, ...executedToolCalls]
+
+        console.log('newItems', newItems)
 
         return {
           originalInput,
@@ -672,9 +653,6 @@ export class Runner {
       if (responseText && responseText.trim() !== '') {
         // Legacy format
         finalOutput = responseText
-      } else {
-        console.warn('Unrecognized response format:', modelResponse)
-        finalOutput = 'Unable to parse model response'
       }
     } catch (error) {
       console.error('Error processing model response:', error)
