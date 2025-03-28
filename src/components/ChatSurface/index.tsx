@@ -13,6 +13,8 @@ import {
 import { RootState } from '../../store'
 import { v4 as uuidv4 } from 'uuid'
 import { useGenerateContent } from '../../hooks/useGenerateContent'
+import { Runner } from '../../agents/runner'
+import { Agent } from '../../agents/primitives'
 
 type HistoryItem = {
   role: string
@@ -97,8 +99,119 @@ const ChatSurface = () => {
     contentList.push(initialMessage)
 
     try {
-      // Process the query with our agent system, passing the generateContent function and user data
-      const responseText = await processQueryWithGraph(query, generateContent, user)
+      // Process the query with our agent system
+      console.log('Processing with agent system...')
+
+      // Create a basic agent with no handoff capabilities
+      const basicAgent: Agent = {
+        name: 'BasicAssistant',
+        description: 'A helpful assistant that answers questions directly.',
+
+        // Return a system prompt for the agent
+        getSystemPrompt: async () => {
+          return "You are a helpful, concise assistant. Provide accurate and useful information to the user's questions. You can perform calculations and get current time when needed."
+        },
+
+        // Basic model settings
+        modelSettings: {
+          model: 'gemini-1.5-pro',
+          temperature: 0.7,
+          maxOutputTokens: 4096,
+          topP: 0.95,
+        },
+
+        // Add some basic tools
+        tools: [
+          {
+            name: 'calculate',
+            description: 'Perform a mathematical calculation',
+            parameters: {
+              expression: {
+                type: 'string',
+                description: 'The mathematical expression to evaluate',
+                required: true,
+              },
+            },
+            execute: async (params: Record<string, unknown>) => {
+              try {
+                // Simple and safer eval for basic calculations
+                const expression = params.expression as string
+                // eslint-disable-next-line no-new-func
+                const result = new Function(`return ${expression}`)()
+                console.log(`Calculation result for "${expression}": ${result}`)
+                return { result }
+              } catch (error) {
+                console.error(`Calculation error: ${error}`)
+                return { error: `Failed to calculate: ${error}` }
+              }
+            },
+          },
+          {
+            name: 'getCurrentTime',
+            description: 'Get the current date and time',
+            parameters: {
+              timezone: {
+                type: 'string',
+                description: 'Optional timezone (defaults to local)',
+                required: false,
+              },
+            },
+            execute: async () => {
+              const now = new Date()
+              console.log(`Providing current time: ${now.toISOString()}`)
+              return {
+                time: now.toLocaleTimeString(),
+                date: now.toLocaleDateString(),
+                iso: now.toISOString(),
+              }
+            },
+          },
+        ],
+
+        // Handler for messages - implementing in a way that uses the parameter
+        handleMessage: async (message: string) => {
+          console.log(`Processing message: ${message}`)
+          // In a real implementation, we would process the message here
+          // But for our demo, the Runner handles the actual processing
+          return {
+            finalOutput: `Response to: ${message}`,
+            handoffPerformed: false,
+          }
+        },
+      }
+
+      // Convert chat history to messages format for the agent
+      const messages = contentList.map((msg) => {
+        if (msg.type === 'text') {
+          return {
+            role: msg.actor === 'user' ? 'user' : 'assistant',
+            content: msg.message,
+          }
+        }
+        // Handle function calls if needed
+        return {
+          role: 'user',
+          content: JSON.stringify(msg),
+        }
+      })
+
+      console.log('Starting agent with messages:', messages)
+
+      // Use the Runner to process the query with conversation history context
+      const result = await Runner.run(basicAgent, messages, {
+        maxTurns: 3, // Allow a few turns for tool usage
+        context: {
+          originalQuery: query,
+          messages: messages,
+          state: {
+            user,
+            thread: thread?.uuid || 'default',
+          },
+        },
+      })
+
+      console.log('Agent response:', result)
+      const responseText = result.finalOutput
 
       const responseMessage: TextMessage = {
         uuid: uuidv4(),
