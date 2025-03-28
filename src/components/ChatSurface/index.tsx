@@ -12,54 +12,54 @@ import {
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import { v4 as uuidv4 } from 'uuid'
-import { useGenerateContent } from '../../hooks/useGenerateContent'
+import { useGenerateContent, MessagePart } from '../../hooks/useGenerateContent'
 import { Runner } from '../../agents/runner'
 import { Agent } from '../../agents/primitives'
 
-type HistoryItem = {
-  role: string
-  parts: Array<string | Record<string, unknown>>
-}
+// Ensure our generateHistory function correctly maps to MessagePart objects
+const generateHistory = (messages: ChatMessage[]): MessagePart[] => {
+  return messages.map((oneMessage: ChatMessage): MessagePart => {
+    // Default to user role if we can't determine
+    let role: 'user' | 'model' = 'user'
+    let parts: Array<string | Record<string, unknown>> = []
 
-const generateHistory = (messages: ChatMessage[]) => {
-  const history: HistoryItem[] = []
-  messages.forEach((oneMessage: ChatMessage) => {
-    const parts: Array<string | Record<string, unknown>> = []
-    let role = ''
     if (oneMessage.type === 'functionCall') {
       role = 'model'
-
-      parts.push({
-        functionCall: {
-          id: oneMessage.uuid,
-          name: oneMessage.name,
-          args: oneMessage.args || {},
-        },
-      })
-    } else if (oneMessage.type === 'text') {
-      role = oneMessage.actor
-      parts.push(oneMessage.message)
-    } else if (oneMessage.type === 'functionResponse') {
-      role = 'user'
-      parts.push({
-        functionResponse: {
-          id: oneMessage.callUuid,
-          name: oneMessage.name,
-          response: {
+      parts = [
+        {
+          functionCall: {
+            id: oneMessage.uuid,
             name: oneMessage.name,
-            content: oneMessage.response,
+            args: oneMessage.args || {},
           },
         },
-      })
+      ]
+    } else if (oneMessage.type === 'text') {
+      // Ensure role is either 'user' or 'model'
+      role = oneMessage.actor === 'user' ? 'user' : 'model'
+      parts = [oneMessage.message]
+    } else if (oneMessage.type === 'functionResponse') {
+      role = 'user'
+      parts = [
+        {
+          functionResponse: {
+            id: oneMessage.callUuid,
+            name: oneMessage.name,
+            response: {
+              name: oneMessage.name,
+              content: oneMessage.response,
+            },
+          },
+        },
+      ]
     }
 
-    history.push({
+    // Cast to satisfy TypeScript - we know our structure matches what's expected
+    return {
       role,
       parts,
-    })
+    } as MessagePart
   })
-
-  return history
 }
 
 const ChatSurface = () => {
@@ -133,7 +133,7 @@ const ChatSurface = () => {
 
         // Basic model settings
         modelSettings: {
-          model: 'gemini-1.5-pro',
+          model: 'gemini-2.0-flash',
           temperature: 0.7,
           maxOutputTokens: 4096,
           topP: 0.95,
@@ -145,11 +145,14 @@ const ChatSurface = () => {
             name: 'calculate',
             description: 'Perform a mathematical calculation',
             parameters: {
-              expression: {
-                type: 'string',
-                description: 'The mathematical expression to evaluate',
-                required: true,
+              type: 'OBJECT',
+              properties: {
+                expression: {
+                  type: 'STRING',
+                  description: 'The mathematical expression to evaluate',
+                },
               },
+              required: ['expression'],
             },
             execute: async (params: Record<string, unknown>) => {
               try {
@@ -169,10 +172,12 @@ const ChatSurface = () => {
             name: 'getCurrentTime',
             description: 'Get the current date and time',
             parameters: {
-              timezone: {
-                type: 'string',
-                description: 'Optional timezone (defaults to local)',
-                required: false,
+              type: 'OBJECT',
+              properties: {
+                timezone: {
+                  type: 'STRING',
+                  description: 'Optional timezone (defaults to local)',
+                },
               },
             },
             execute: async () => {
@@ -225,8 +230,22 @@ const ChatSurface = () => {
           state: {
             user,
             thread: thread.uuid,
-            // Pass the generateContent function to be available in the context
-            generateContent: generateContent,
+            // Pass a wrapper that converts message format
+            generateContent: async (params) => {
+              // Convert from Runner format to MessagePart format expected by the API
+              const formattedMessages = generateHistory(contentList)
+
+              console.log('Using formatted messages for API:', formattedMessages)
+
+              return await generateContent({
+                contents: formattedMessages,
+                parameters: params.parameters,
+                responseSchema: params.responseSchema,
+                tools: params.tools,
+                modelName: params.modelName,
+                systemInstruction: params.systemInstruction,
+              })
+            },
           },
         },
       })
@@ -248,6 +267,9 @@ const ChatSurface = () => {
       // Fallback to the original content generation if agent system fails
       const tools: Array<Record<string, unknown>> = []
       const systemInstruction = ''
+
+      console.log(contentList)
+      console.log(generateHistory(contentList))
 
       const response = await generateContent({
         contents: generateHistory(contentList),

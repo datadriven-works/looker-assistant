@@ -1,4 +1,4 @@
-import { GenerateContentParams } from '../hooks/useGenerateContent'
+import { GenerateContentParams, MessagePart } from '../hooks/useGenerateContent'
 import {
   Agent,
   AgentResult,
@@ -475,18 +475,21 @@ export class Runner {
       : 'You are a helpful AI assistant.'
 
     // 2. Prepare the input including all generated items
-    const messages: Array<{ role: string; content: string }> = []
+    const messages: MessagePart[] = []
 
     // Format original input as messages
     if (typeof originalInput === 'string') {
       messages.push({
         role: 'user',
-        content: originalInput,
+        parts: [originalInput],
       })
     } else {
       // Add all messages from the input
       messages.push(...originalInput)
     }
+
+    console.log('originalInput', originalInput)
+    console.log('messages', messages)
 
     // Add all generated items as messages
     if (generatedItems && generatedItems.length > 0) {
@@ -498,15 +501,15 @@ export class Runner {
           // Add assistant message for tool call
           if (toolCall.name) {
             messages.push({
-              role: 'assistant',
-              content: `I'll help you with that by using the ${String(toolCall.name)} tool.`,
+              role: 'model',
+              parts: [`I'll help you with that by using the ${String(toolCall.name)} tool.`],
             })
 
             // Add tool message with result
             if (toolCall.result !== undefined) {
               messages.push({
-                role: 'tool',
-                content: JSON.stringify(toolCall.result),
+                role: 'model',
+                parts: [JSON.stringify(toolCall.result)],
               })
             }
           }
@@ -525,33 +528,6 @@ export class Runner {
         throw new Error('generateContent function not provided in context')
       }
 
-      // Prepare tools for the model
-      const formattedTools =
-        agent.tools?.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          parameters: Object.entries(tool.parameters).reduce(
-            (acc, [key, def]) => {
-              acc[key] = {
-                type: def.type,
-                description: def.description || '',
-                required: def.required || false,
-                enum: def.enum || undefined,
-              }
-              return acc
-            },
-            {} as Record<
-              string,
-              {
-                type: string
-                description: string
-                required: boolean
-                enum?: string[] | undefined
-              }
-            >
-          ),
-        })) || []
-
       // Prepare handoffs for the model
       const handoffTools =
         agent.handoffs?.map((handoff) => ({
@@ -560,16 +536,20 @@ export class Runner {
           }`,
           description: handoff.description,
           parameters: {
-            reason: {
-              type: 'string',
-              description: 'Reason for handing off to this agent',
-              required: true,
+            type: 'OBJECT',
+            properties: {
+              reason: {
+                type: 'string',
+                description: 'Reason for handing off to this agent',
+                required: true,
+              },
             },
+            required: ['reason'],
           },
         })) || []
 
       // Combine all tools
-      const allTools = [...formattedTools, ...handoffTools]
+      const allTools = [...(agent.tools || []), ...handoffTools]
 
       // Prepare model parameters
       const modelParameters = {

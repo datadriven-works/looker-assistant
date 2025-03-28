@@ -1,9 +1,10 @@
 import CryptoJS from 'crypto-js'
 import { ModelParameters } from '../utils/VertexHelper'
 
-interface MessagePart {
+// Export the MessagePart interface to be used elsewhere
+export interface MessagePart {
   role: 'user' | 'model'
-  parts: [string]
+  parts: Array<string | Record<string, unknown>>
 }
 
 export function formatRow(field: {
@@ -24,6 +25,7 @@ export function formatRow(field: {
   return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
 }
 
+// Define a flexible params interface that can accept different message formats
 export interface GenerateContentParams {
   contents: MessagePart[]
   parameters?: ModelParameters
@@ -52,7 +54,6 @@ export const useGenerateContent = () => {
       max_output_tokens: 8192,
       top_p: 0.95,
     }
-
     if (!parameters) {
       parameters = defaultParameters
     } else {

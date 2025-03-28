@@ -20,6 +20,7 @@ export interface ParameterDefinition {
   description?: string
   enum?: string[]
   required?: boolean
+  properties?: Record<string, ParameterDefinition>
 }
 
 /**
@@ -28,7 +29,14 @@ export interface ParameterDefinition {
 export interface Tool {
   name: string
   description: string
-  parameters: Record<string, ParameterDefinition>
+  parameters: Record<
+    string,
+    {
+      type: string
+      properties?: Record<string, ParameterDefinition>
+      required?: string[]
+    }
+  >
   execute: (params: Record<string, unknown>) => Promise<unknown>
 }
 
@@ -70,20 +78,7 @@ export interface Agent {
   outputGuardrails?: Guardrail[]
 
   // Optional tools the agent can use
-  tools?: {
-    name: string
-    description: string
-    parameters: Record<
-      string,
-      {
-        type: string
-        description?: string
-        required?: boolean
-        enum?: string[]
-      }
-    >
-    execute: (parameters: Record<string, unknown>) => Promise<unknown>
-  }[]
+  tools?: Tool[]
 
   // Optional handoffs this agent can perform
   handoffs?: Handoff[]
