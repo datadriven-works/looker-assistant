@@ -86,7 +86,9 @@ export interface Agent {
   // Optional handoffs this agent can perform
   handoffs?: Handoff[]
 
-  // Agent handlers
+  // Agent handlers - Used for direct agent invocation
+  // Note: This is an alternative to using the Runner class.
+  // When using Runner.run(), this method is not called.
   handleMessage: (message: string, options?: Record<string, unknown>) => Promise<AgentResult>
 }
 

@@ -102,6 +102,25 @@ const ChatSurface = () => {
       // Process the query with our agent system
       console.log('Processing with agent system...')
 
+      // *****************************************************
+      // AGENT ARCHITECTURE EXPLANATION:
+      //
+      // There are two ways to use agents in this system:
+      //
+      // 1. Direct usage: Call agent.handleMessage() directly
+      //    - You manage the execution yourself
+      //    - You handle tool calls and multi-turn interactions
+      //    - Good for simple use cases or custom flows
+      //
+      // 2. Runner-managed (what we're using here):
+      //    - Use Runner.run(agent, messages, options)
+      //    - The Runner manages the entire execution flow
+      //    - Takes care of tools, guardrails, handoffs, etc.
+      //    - Best for complex interactions and standard flows
+      //
+      // The handleMessage method is only used in the first approach
+      // *****************************************************
+
       // Create a basic agent with no handoff capabilities
       const basicAgent: Agent = {
         name: 'BasicAssistant',
@@ -168,13 +187,13 @@ const ChatSurface = () => {
           },
         ],
 
-        // Handler for messages - implementing in a way that uses the parameter
-        handleMessage: async (message: string) => {
-          console.log(`Processing message: ${message}`)
-          // In a real implementation, we would process the message here
-          // But for our demo, the Runner handles the actual processing
+        // handleMessage is required by the Agent interface, but not used when
+        // using the Runner.run() method. The Runner takes care of the entire execution flow.
+        handleMessage: async () => {
+          // This is just a placeholder to satisfy the interface requirement
+          console.log(`Note: This handleMessage method is not used when using Runner.run()`)
           return {
-            finalOutput: `Response to: ${message}`,
+            finalOutput: '',
             handoffPerformed: false,
           }
         },
@@ -205,7 +224,7 @@ const ChatSurface = () => {
           messages: messages,
           state: {
             user,
-            thread: thread?.uuid || 'default',
+            thread: thread.uuid,
           },
         },
       })
