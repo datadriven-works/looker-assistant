@@ -148,7 +148,20 @@ export interface RunContext {
   visitedNodes?: string[]
 
   // Custom data that can be accessed by agents, tools, and guardrails
-  state?: Record<string, unknown>
+  state?: Record<string, unknown> & {
+    // Generate content function that can be used by the Runner
+    generateContent?: (params: {
+      contents: Array<{ role: string; content: string }>
+      parameters?: Record<string, unknown>
+      responseSchema?: unknown
+      tools?: Array<Record<string, unknown>>
+      modelName?: string
+      systemInstruction?: string
+    }) => Promise<unknown>
+
+    // Any other state properties
+    [key: string]: unknown
+  }
 }
 
 /**

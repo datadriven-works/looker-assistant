@@ -515,10 +515,19 @@ export class Runner {
 
     // 3. Use the model to get a response
     try {
-      // Import the generateContent function
-      const { generateContent } = await import('../hooks/useGenerateContent').then((module) =>
-        module.useGenerateContent()
-      )
+      // Get the generateContent function from context
+      const generateContent = contextWrapper.context?.state?.generateContent as (params: {
+        contents: Array<{ role: string; content: string }>
+        parameters?: Record<string, unknown>
+        responseSchema?: unknown
+        tools?: Array<Record<string, unknown>>
+        modelName?: string
+        systemInstruction?: string
+      }) => Promise<unknown>
+
+      if (!generateContent) {
+        throw new Error('generateContent function not provided in context')
+      }
 
       // Prepare tools for the model
       const formattedTools =
