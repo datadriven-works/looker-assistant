@@ -1,3 +1,4 @@
+import { GenerateContentParams } from '../hooks/useGenerateContent'
 import {
   Agent,
   AgentResult,
@@ -516,14 +517,9 @@ export class Runner {
     // 3. Use the model to get a response
     try {
       // Get the generateContent function from context
-      const generateContent = contextWrapper.context?.state?.generateContent as (params: {
-        contents: Array<{ role: string; content: string }>
-        parameters?: Record<string, unknown>
-        responseSchema?: unknown
-        tools?: Array<Record<string, unknown>>
-        modelName?: string
-        systemInstruction?: string
-      }) => Promise<unknown>
+      const generateContent = contextWrapper.context?.state?.generateContent as (
+        params: GenerateContentParams
+      ) => Promise<unknown>
 
       if (!generateContent) {
         throw new Error('generateContent function not provided in context')

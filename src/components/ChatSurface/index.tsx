@@ -216,9 +216,6 @@ const ChatSurface = () => {
 
       console.log('Starting agent with messages:', messages)
 
-      // Extract the generateContent function from the hook for passing to the Runner
-      const contentGenerator = generateContent
-
       // Use the Runner to process the query with conversation history context
       const result = await Runner.run(basicAgent, messages, {
         maxTurns: 3, // Allow a few turns for tool usage
@@ -229,7 +226,7 @@ const ChatSurface = () => {
             user,
             thread: thread.uuid,
             // Pass the generateContent function to be available in the context
-            generateContent: contentGenerator,
+            generateContent: generateContent,
           },
         },
       })

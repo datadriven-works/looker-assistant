@@ -2,6 +2,8 @@
  * Primitives for the Agent system based on OpenAI Agents SDK design
  */
 
+import { GenerateContentParams } from '../hooks/useGenerateContent'
+
 /**
  * Message interface for conversation history
  */
@@ -150,14 +152,7 @@ export interface RunContext {
   // Custom data that can be accessed by agents, tools, and guardrails
   state?: Record<string, unknown> & {
     // Generate content function that can be used by the Runner
-    generateContent?: (params: {
-      contents: Array<{ role: string; content: string }>
-      parameters?: Record<string, unknown>
-      responseSchema?: unknown
-      tools?: Array<Record<string, unknown>>
-      modelName?: string
-      systemInstruction?: string
-    }) => Promise<unknown>
+    generateContent?: (params: GenerateContentParams) => Promise<unknown>
 
     // Any other state properties
     [key: string]: unknown

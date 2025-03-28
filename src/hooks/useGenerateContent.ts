@@ -1,6 +1,11 @@
 import CryptoJS from 'crypto-js'
 import { ModelParameters } from '../utils/VertexHelper'
 
+interface MessagePart {
+  role: 'user' | 'model'
+  parts: [string]
+}
+
 export function formatRow(field: {
   name?: string
   type?: string
@@ -19,6 +24,16 @@ export function formatRow(field: {
   return `| ${name} | ${type} | ${label} | ${description} | ${tags} |`
 }
 
+export interface GenerateContentParams {
+  contents: MessagePart[]
+  parameters?: ModelParameters
+  responseSchema?: any
+  history?: any[]
+  tools?: any[]
+  modelName?: string
+  systemInstruction?: string
+}
+
 export const useGenerateContent = () => {
   // cloud function
   const VERTEX_AI_ENDPOINT = process.env.VERTEX_AI_ENDPOINT || ''
@@ -31,15 +46,7 @@ export const useGenerateContent = () => {
     tools = [],
     modelName = 'gemini-2.0-flash',
     systemInstruction = '',
-  }: {
-    contents: any[]
-    parameters?: ModelParameters
-    responseSchema?: any
-    history?: any[]
-    tools?: any[]
-    modelName?: string
-    systemInstruction?: string
-  }) => {
+  }: GenerateContentParams) => {
     const defaultParameters = {
       temperature: 2,
       max_output_tokens: 8192,
