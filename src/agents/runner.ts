@@ -645,86 +645,25 @@ export class Runner {
 
     try {
       // Type assertion to access properties
-      const response = modelResponse as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{
-              text?: string
-              functionCall?: {
-                name: string
-                args?: Record<string, unknown>
-              }
-            }>
-            text?: string
-            structuredOutput?: {
-              data?: unknown
-            }
-          }
-        }>
+      const response = modelResponse as Array<{
         text?: string
-      }
+        functionCall?: any
+      }>
 
-      // Check if the response contains tool calls
-      if (response.candidates?.[0]?.content?.parts) {
-        const parts = response.candidates[0].content.parts || []
-
-        // Extract text content
-        const textParts = parts.filter((part) => 'text' in part && part.text !== undefined)
-        if (textParts.length > 0) {
-          finalOutput = textParts.map((part) => part.text || '').join('\n')
+      // Process any textual responses
+      let responseText = ''
+      response.forEach((oneResponse: any) => {
+        if (oneResponse.text) {
+          responseText += oneResponse.text
         }
+      })
 
-        // Extract function calls
-        const functionParts = parts.filter(
-          (part) => 'functionCall' in part && part.functionCall !== undefined
-        )
-        for (const part of functionParts) {
-          if (part.functionCall) {
-            const functionCall = part.functionCall
-            const name = functionCall.name
-
-            // Check if this is a handoff function call
-            if (name.startsWith('handoff_to_')) {
-              const targetAgentName = name.replace('handoff_to_', '')
-
-              // Find the handoff agent
-              const handoff = agent.handoffs?.find((h) => {
-                const handoffName =
-                  typeof h.targetAgent === 'string' ? h.targetAgent : h.targetAgent.name
-                return handoffName === targetAgentName
-              })
-
-              if (handoff) {
-                handoffAgent = handoff.targetAgent
-              }
-            } else {
-              // Add as a tool call
-              toolCalls.push({
-                name,
-                parameters: functionCall.args || {},
-                result: null, // To be filled after execution
-              })
-            }
-          }
-        }
-      } else if (response.candidates?.[0]?.content?.text) {
-        // Simple text response
-        finalOutput = response.candidates[0].content.text
-      } else if (typeof response.candidates?.[0]?.content === 'string') {
-        // Direct string response
-        finalOutput = response.candidates[0].content as string
-      } else if (response.text) {
+      if (responseText && responseText.trim() !== '') {
         // Legacy format
-        finalOutput = response.text
+        finalOutput = responseText
       } else {
-        // Try to extract structured output
-        const structuredOutput = response.candidates?.[0]?.content?.structuredOutput?.data
-        if (structuredOutput) {
-          finalOutput = JSON.stringify(structuredOutput)
-        } else {
-          console.warn('Unrecognized response format:', response)
-          finalOutput = 'Unable to parse model response'
-        }
+        console.warn('Unrecognized response format:', response)
+        finalOutput = 'Unable to parse model response'
       }
     } catch (error) {
       console.error('Error processing model response:', error)
