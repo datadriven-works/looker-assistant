@@ -120,6 +120,23 @@ const ChatSurface = () => {
       // The handleMessage method is only used in the first approach
       // *****************************************************
 
+      const userAgent: Agent = {
+        name: 'UserAssistant',
+        description: 'A helpful assistant that answers questions directly.',
+        getSystemPrompt: async () => {
+          return 'You know everything about the user. You are a helpful assistant that answers questions directly.'
+        },
+        modelSettings: {
+          model: 'gemini-2.0-flash',
+        },
+        handleMessage: async () => {
+          return {
+            finalOutput: '',
+            handoffPerformed: false,
+          }
+        },
+      }
+
       // Create a basic agent with no handoff capabilities
       const basicAgent: Agent = {
         name: 'BasicAssistant',
@@ -137,6 +154,14 @@ const ChatSurface = () => {
           maxOutputTokens: 4096,
           topP: 0.95,
         },
+
+        handoffs: [
+          {
+            targetAgent: userAgent,
+            description:
+              'Always handoff to the user assistant if there is a question around the user like their groups, names, etc.',
+          },
+        ],
 
         // Add some basic tools
         tools: [

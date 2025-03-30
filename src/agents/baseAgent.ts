@@ -1,4 +1,4 @@
-import { Agent, Guardrail, Handoff, Tool } from './primitives'
+import { Agent, AgentResult, Guardrail, Handoff, Tool } from './primitives'
 
 /**
  * BaseAgent class implementing the Agent interface
@@ -6,6 +6,7 @@ import { Agent, Guardrail, Handoff, Tool } from './primitives'
  */
 export class BaseAgent implements Agent {
   name: string
+  description: string
   instructions: string
   tools?: Tool[]
   handoffDescription?: string
@@ -26,6 +27,7 @@ export class BaseAgent implements Agent {
     name: string,
     instructions: string,
     options?: {
+      description?: string
       tools?: Tool[]
       handoffDescription?: string
       handoffs?: Handoff[]
@@ -37,6 +39,7 @@ export class BaseAgent implements Agent {
   ) {
     this.name = name
     this.instructions = instructions
+    this.description = options?.description || `${name} Agent`
     this.tools = options?.tools
     this.handoffDescription = options?.handoffDescription
     this.handoffs = options?.handoffs
@@ -53,9 +56,18 @@ export class BaseAgent implements Agent {
    */
   asHandoff(): Handoff {
     return {
-      targetAgent: this,
+      targetAgent: this as Agent,
       description: this.handoffDescription || `Handoff to ${this.name}`,
     }
+  }
+
+  /**
+   * Handle incoming messages (required by Agent interface)
+   * This method should be implemented by subclasses
+   */
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+  async handleMessage(_message: string, _options?: Record<string, unknown>): Promise<AgentResult> {
+    throw new Error('Method not implemented. Subclasses must implement handleMessage.')
   }
 
   /**
@@ -63,7 +75,7 @@ export class BaseAgent implements Agent {
    *
    * @returns The formatted system prompt
    */
-  getSystemPrompt(): string {
+  async getSystemPrompt(): Promise<string> {
     let prompt = this.instructions
 
     // Add information about available tools

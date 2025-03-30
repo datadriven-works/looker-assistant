@@ -394,7 +394,7 @@ export class Runner {
    * Run a single input guardrail
    */
   private static async runSingleInputGuardrail(
-    agent: Agent,
+    _agent: Agent,
     guardrail: Guardrail,
     input: MessagePart[],
     contextWrapper: { context?: RunContext }
@@ -450,7 +450,7 @@ export class Runner {
    */
   private static async runSingleOutputGuardrail(
     guardrail: Guardrail,
-    agent: Agent,
+    _agent: Agent,
     output: unknown,
     contextWrapper: { context?: RunContext }
   ): Promise<GuardrailCheckResult> {
@@ -551,9 +551,8 @@ export class Runner {
             type: 'OBJECT',
             properties: {
               reason: {
-                type: 'string',
+                type: 'STRING',
                 description: 'Reason for handing off to this agent',
-                required: true,
               },
             },
             required: ['reason'],
