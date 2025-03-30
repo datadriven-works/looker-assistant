@@ -490,6 +490,11 @@ export class Runner {
     // Add all messages from the input
     messages.push(...originalInput)
 
+    // add any inject messages
+    if (agent.injectMessages && agent.injectMessages.length > 0) {
+      messages.push(...agent.injectMessages)
+    }
+
     // add the generated items as messages
     if (generatedItems && generatedItems.length > 0) {
       generatedItems.forEach((item) => {

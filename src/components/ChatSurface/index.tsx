@@ -113,6 +113,12 @@ const ChatSurface = () => {
         },
         handoffDescription:
           'Always handoff to the explore agent if there is a question looker explore related. Questions like "What dimensions are there in the explore?", "What measures are there in the explore?", "What is the total revenue for the explore?", etc. There might also be questions like "What explore should I use to answer this question?"',
+        injectMessages: [
+          {
+            role: 'user',
+            parts: ['The explores that are defined are called Sales Orders and Order Items'],
+          },
+        ],
       }
 
       const userAgent: Agent = {

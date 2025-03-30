@@ -72,6 +72,10 @@ export interface Agent {
 
   // Optional description of when this agent should handoff
   handoffDescription?: string
+
+  // optional list of messages to inject into the conersation before the turn.
+  // this is useful to pass in context into the conversation that is only needed for the turn
+  injectMessages?: MessagePart[]
 }
 
 /**
