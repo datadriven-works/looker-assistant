@@ -2,7 +2,7 @@
  * Primitives for the Agent system based on OpenAI Agents SDK design
  */
 
-import { GenerateContentParams } from '../hooks/useGenerateContent'
+import { GenerateContentParams, MessagePart } from '../hooks/useGenerateContent'
 import { GeminiModelResponse } from './runner'
 
 /**
@@ -87,7 +87,7 @@ export interface Handoff {
   description: string
 
   // Optional filter to determine if handoff should be allowed
-  filter?: (input: string | Message[], context?: RunContext) => Promise<boolean>
+  filter?: (input: string | MessagePart[], context?: RunContext) => Promise<boolean>
 }
 
 /**
@@ -101,7 +101,10 @@ export interface Guardrail {
   description: string
 
   // Function to validate input or output
-  validate: (input: string | Message[] | unknown, context?: RunContext) => Promise<GuardrailResult>
+  validate: (
+    input: string | MessagePart[] | unknown,
+    context?: RunContext
+  ) => Promise<GuardrailResult>
 }
 
 /**
@@ -123,7 +126,7 @@ export interface GuardrailResult {
  */
 export interface RunContext {
   // Conversation history
-  messages?: Message[]
+  messages?: MessagePart[]
 
   // Original query that started this conversation
   originalQuery?: string
