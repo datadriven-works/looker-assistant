@@ -101,25 +101,6 @@ const ChatSurface = () => {
       // Process the query with our agent system
       console.log('Processing with agent system...')
 
-      // *****************************************************
-      // AGENT ARCHITECTURE EXPLANATION:
-      //
-      // There are two ways to use agents in this system:
-      //
-      // 1. Direct usage: Call agent.handleMessage() directly
-      //    - You manage the execution yourself
-      //    - You handle tool calls and multi-turn interactions
-      //    - Good for simple use cases or custom flows
-      //
-      // 2. Runner-managed (what we're using here):
-      //    - Use Runner.run(agent, messages, options)
-      //    - The Runner manages the entire execution flow
-      //    - Takes care of tools, guardrails, handoffs, etc.
-      //    - Best for complex interactions and standard flows
-      //
-      // The handleMessage method is only used in the first approach
-      // *****************************************************
-
       const userAgent: Agent = {
         name: 'UserAssistant',
         description: 'A helpful assistant that answers questions directly.',
@@ -132,12 +113,8 @@ const ChatSurface = () => {
         modelSettings: {
           model: 'gemini-2.0-flash',
         },
-        handleMessage: async () => {
-          return {
-            finalOutput: '',
-            handoffPerformed: false,
-          }
-        },
+        handoffDescription:
+          'Always handoff to the user assistant if there is a question around the user like their groups, names, etc.',
       }
 
       // Create a basic agent with no handoff capabilities
@@ -221,17 +198,6 @@ const ChatSurface = () => {
             },
           },
         ],
-
-        // handleMessage is required by the Agent interface, but not used when
-        // using the Runner.run() method. The Runner takes care of the entire execution flow.
-        handleMessage: async () => {
-          // This is just a placeholder to satisfy the interface requirement
-          console.log(`Note: This handleMessage method is not used when using Runner.run()`)
-          return {
-            finalOutput: '',
-            handoffPerformed: false,
-          }
-        },
       }
 
       // Use the Runner to process the query with conversation history context

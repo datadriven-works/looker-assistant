@@ -70,10 +70,8 @@ export interface Agent {
   // Optional handoffs this agent can perform
   handoffs?: Handoff[]
 
-  // Agent handlers - Used for direct agent invocation
-  // Note: This is an alternative to using the Runner class.
-  // When using Runner.run(), this method is not called.
-  handleMessage: (message: string, options?: Record<string, unknown>) => Promise<AgentResult>
+  // Optional description of when this agent should handoff
+  handoffDescription?: string
 }
 
 /**
@@ -81,10 +79,10 @@ export interface Agent {
  */
 export interface Handoff {
   // The agent to hand off to
-  targetAgent: string | Agent
+  targetAgent: Agent
 
   // Description of when this handoff should be used
-  description: string
+  description?: string
 
   // Optional filter to determine if handoff should be allowed
   filter?: (input: string | MessagePart[], context?: RunContext) => Promise<boolean>

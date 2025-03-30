@@ -546,7 +546,7 @@ export class Runner {
           name: `handoff_to_${
             typeof handoff.targetAgent === 'string' ? handoff.targetAgent : handoff.targetAgent.name
           }`,
-          description: handoff.description,
+          description: handoff.description || handoff.targetAgent?.handoffDescription || '',
           parameters: {
             type: 'OBJECT',
             properties: {
