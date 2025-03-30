@@ -597,7 +597,7 @@ export class Runner {
       if (processedResponse.handoffAgent) {
         console.log('handoffAgent', processedResponse.handoffAgent)
         // If there's a handoff, create a handoff next step
-        const handoffAgent = this.getHandoffAgent(processedResponse.handoffAgent)
+        const handoffAgent = this.getHandoffAgent(processedResponse.handoffAgent, agent)
         return {
           originalInput,
           modelResponse: processedResponse,
@@ -678,6 +678,20 @@ export class Runner {
           parameters: oneResponse.functionCall?.args || {},
           result: null,
         }))
+
+      // Check for handoff function calls
+      const handoffCall = toolCalls.find((call) => call.name.startsWith('handoff_to_'))
+      if (handoffCall) {
+        // Extract the agent name from the function call name (remove 'handoff_to_' prefix)
+        const agentName = handoffCall.name.substring('handoff_to_'.length)
+        handoffAgent = agentName
+        console.log(
+          `Handoff requested to agent: ${agentName}, reason: ${handoffCall.parameters.reason}`
+        )
+      }
+
+      // Filter out handoff function calls from the toolCalls list
+      toolCalls = toolCalls.filter((call) => !call.name.startsWith('handoff_to_'))
 
       if (responseText && responseText.trim() !== '') {
         // Legacy format
@@ -775,10 +789,26 @@ export class Runner {
   /**
    * Get an agent for a handoff
    */
-  private static getHandoffAgent(handoffTarget: string | Agent): Agent {
+  private static getHandoffAgent(handoffTarget: string | Agent, currentAgent?: Agent): Agent {
     if (typeof handoffTarget === 'string') {
-      // In a real implementation, you would look up the agent by name
-      // For now, we'll just throw an error
+      // Try to find the handoff target in the current agent's handoffs
+      if (currentAgent && currentAgent.handoffs) {
+        const handoff = currentAgent.handoffs.find((h) => {
+          if (typeof h.targetAgent === 'string') {
+            return h.targetAgent === handoffTarget
+          } else {
+            return h.targetAgent.name === handoffTarget
+          }
+        })
+
+        if (handoff) {
+          return typeof handoff.targetAgent === 'string'
+            ? ({ name: handoff.targetAgent } as unknown as Agent) // This is a temporary placeholder since we don't have a real agent registry
+            : handoff.targetAgent
+        }
+      }
+
+      // If we get here, we couldn't find the agent
       throw new Error(`Cannot find handoff agent named ${handoffTarget}`)
     } else {
       return handoffTarget

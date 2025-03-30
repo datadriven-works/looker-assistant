@@ -124,7 +124,10 @@ const ChatSurface = () => {
         name: 'UserAssistant',
         description: 'A helpful assistant that answers questions directly.',
         getSystemPrompt: async () => {
-          return 'You know everything about the user. You are a helpful assistant that answers questions directly.'
+          return (
+            'You know everything about the user. You are a helpful assistant that answers questions directly. Here is all the information you know about the user: ' +
+            JSON.stringify(user)
+          )
         },
         modelSettings: {
           model: 'gemini-2.0-flash',
