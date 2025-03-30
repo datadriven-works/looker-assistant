@@ -141,32 +141,6 @@ const ChatSurface = () => {
         // Add some basic tools
         tools: [
           {
-            name: 'calculate',
-            description: 'Perform a mathematical calculation',
-            parameters: {
-              type: 'OBJECT',
-              properties: {
-                expression: {
-                  type: 'STRING',
-                  description: 'The mathematical expression to evaluate',
-                },
-              },
-              required: ['expression'],
-            },
-            execute: async (params: Record<string, unknown>) => {
-              try {
-                // Simple and safer eval for basic calculations
-                const expression = params.expression as string
-                const result = new Function(`return ${expression}`)()
-                console.log(`Calculation result for "${expression}": ${result}`)
-                return { result }
-              } catch (error) {
-                console.error(`Calculation error: ${error}`)
-                return { error: `Failed to calculate: ${error}` }
-              }
-            },
-          },
-          {
             name: 'getCurrentTime',
             description: 'Get the current date and time',
             parameters: {
@@ -177,15 +151,45 @@ const ChatSurface = () => {
                   description: 'Optional timezone (defaults to local)',
                 },
               },
+              required: ['timezone'],
             },
-            execute: async () => {
+            execute: async (params) => {
               const now = new Date()
-              console.log(`Providing current time: ${now.toISOString()}`)
-              return {
-                time: now.toLocaleTimeString(),
-                date: now.toLocaleDateString(),
-                iso: now.toISOString(),
+              // Use the timezone parameter if provided
+              const timezone = params?.timezone as string | undefined
+
+              console.log(
+                `Providing current time: ${now.toISOString()}${
+                  timezone ? ` in timezone ${timezone}` : ''
+                }`
+              )
+
+              let timeDisplay, dateDisplay
+
+              if (timezone) {
+                // Format with the specified timezone
+                try {
+                  timeDisplay = now.toLocaleTimeString(undefined, { timeZone: timezone })
+                  dateDisplay = now.toLocaleDateString(undefined, { timeZone: timezone })
+                } catch (error) {
+                  // Fallback if timezone is invalid
+                  console.error(`Invalid timezone: ${timezone}. Using local timezone.`)
+                  timeDisplay = now.toLocaleTimeString()
+                  dateDisplay = now.toLocaleDateString()
+                }
+              } else {
+                // Use local timezone
+                timeDisplay = now.toLocaleTimeString()
+                dateDisplay = now.toLocaleDateString()
               }
+
+              return [
+                {
+                  text: `Current time: ${timeDisplay}, Date: ${dateDisplay}, ISO: ${now.toISOString()}${
+                    timezone ? ` (Timezone: ${timezone})` : ''
+                  }`,
+                },
+              ]
             },
           },
         ],
@@ -202,29 +206,12 @@ const ChatSurface = () => {
         },
       }
 
-      // Convert chat history to messages format for the agent
-      const messages = contentList.map((msg) => {
-        if (msg.type === 'text') {
-          return {
-            role: msg.actor === 'user' ? 'user' : 'model',
-            parts: [msg.message],
-          }
-        }
-        // Handle function calls if needed
-        return {
-          role: 'user',
-          parts: [JSON.stringify(msg)],
-        }
-      })
-
-      console.log('Starting agent with messages:', messages)
-
       // Use the Runner to process the query with conversation history context
-      const result = await Runner.run(basicAgent, messages, {
+      const result = await Runner.run(basicAgent, generateHistory(contentList), {
         maxTurns: 5, // Allow a few turns for tool usage
         context: {
           originalQuery: query,
-          messages: messages,
+          messages: generateHistory(contentList),
           state: {
             user,
             thread: thread.uuid,

@@ -10,10 +10,11 @@ import { GeminiModelResponse } from './runner'
  */
 export interface ParameterDefinition {
   type: string
+  name?: string
   description?: string
   enum?: string[]
-  required?: boolean
-  properties?: Record<string, ParameterDefinition>
+  required?: string[]
+  properties?: any
 }
 
 /**
@@ -22,15 +23,8 @@ export interface ParameterDefinition {
 export interface Tool {
   name: string
   description: string
-  parameters: Record<
-    string,
-    {
-      type: string
-      properties?: Record<string, ParameterDefinition>
-      required?: string[]
-    }
-  >
-  execute: (params: Record<string, unknown>) => Promise<GeminiModelResponse[]>
+  parameters: ParameterDefinition
+  execute: (params?: Record<string, unknown>) => Promise<any>
 }
 
 /**
