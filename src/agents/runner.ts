@@ -1,20 +1,12 @@
 import { generateContent, MessagePart } from '../hooks/useGenerateContent'
-import {
-  Agent,
-  AgentResult,
-  Guardrail,
-  GuardrailResult,
-  Message,
-  RunContext,
-  ToolCall,
-} from './primitives'
+import { Agent, AgentResult, Guardrail, GuardrailResult, RunContext, ToolCall } from './primitives'
 import { v4 as uuidv4 } from 'uuid'
 /**
  * Result of running a single step in the agent loop
  */
 interface SingleStepResult {
   // The original input that was used
-  originalInput: string | Message[]
+  originalInput: MessagePart[]
 
   // The model's response for this step
   modelResponse: unknown
@@ -183,7 +175,7 @@ export class Runner {
    */
   static async run(
     startingAgent: Agent,
-    input: string | Message[],
+    input: string | MessagePart[],
     options: {
       context?: RunContext
       maxTurns?: number
@@ -194,7 +186,14 @@ export class Runner {
     const { context, maxTurns = this.DEFAULT_MAX_TURNS, hooks = {}, runConfig = {} } = options
 
     let currentTurn = 0
-    let originalInput = this.deepCopy(input)
+    let originalInput: MessagePart[] = []
+
+    if (typeof input === 'string') {
+      originalInput = [{ role: 'user', parts: [input] }]
+    } else {
+      originalInput = input
+    }
+
     let generatedItems: unknown[] = []
 
     const contextWrapper = { context }
@@ -216,7 +215,7 @@ export class Runner {
             await this.runInputGuardrails(
               startingAgent,
               [...(startingAgent.inputGuardrails || []), ...(runConfig.inputGuardrails || [])],
-              this.deepCopy(input),
+              originalInput,
               contextWrapper
             )
           } catch (error) {
@@ -317,7 +316,7 @@ export class Runner {
    */
   static runSync(
     startingAgent: Agent,
-    input: string | Message[],
+    input: string | MessagePart[],
     options: {
       context?: RunContext
       maxTurns?: number
@@ -360,7 +359,7 @@ export class Runner {
   private static async runInputGuardrails(
     agent: Agent,
     guardrails: Guardrail[],
-    input: string | Message[],
+    input: MessagePart[],
     contextWrapper: { context?: RunContext }
   ): Promise<GuardrailCheckResult[]> {
     if (!guardrails || guardrails.length === 0) {
@@ -397,7 +396,7 @@ export class Runner {
   private static async runSingleInputGuardrail(
     agent: Agent,
     guardrail: Guardrail,
-    input: string | Message[],
+    input: MessagePart[],
     contextWrapper: { context?: RunContext }
   ): Promise<GuardrailCheckResult> {
     try {
@@ -469,7 +468,7 @@ export class Runner {
    */
   private static async runSingleTurn(
     agent: Agent,
-    originalInput: string | Message[],
+    originalInput: MessagePart[],
     generatedItems: unknown[],
     hooks: RunHooks,
     contextWrapper: { context?: RunContext },
@@ -488,16 +487,8 @@ export class Runner {
     // 2. Prepare the input including all generated items
     const messages: MessagePart[] = []
 
-    // Format original input as messages
-    if (typeof originalInput === 'string') {
-      messages.push({
-        role: 'user',
-        parts: [originalInput],
-      })
-    } else {
-      // Add all messages from the input
-      messages.push(...originalInput)
-    }
+    // Add all messages from the input
+    messages.push(...originalInput)
 
     // add the generated items as messages
     if (generatedItems && generatedItems.length > 0) {

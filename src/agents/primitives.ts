@@ -6,14 +6,6 @@ import { GenerateContentParams } from '../hooks/useGenerateContent'
 import { GeminiModelResponse } from './runner'
 
 /**
- * Message interface for conversation history
- */
-export interface Message {
-  role: string
-  parts: Array<string | Record<string, unknown>>
-}
-
-/**
  * Parameter definition for a tool
  */
 export interface ParameterDefinition {
