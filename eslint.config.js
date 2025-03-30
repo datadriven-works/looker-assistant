@@ -7,7 +7,7 @@ const compat = new FlatCompat()
 
 export default [
   // Ignore patterns
-  { ignores: ['dist/**'] },
+  { ignores: ['dist/**', 'vite.config.ts'] },
 
   // Base JS config
   js.configs.recommended,
@@ -37,6 +37,7 @@ export default [
       'react/react-in-jsx-scope': 'off',
       semi: ['error', 'never'],
       'react-hooks/exhaustive-deps': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
     },
     settings: {
       react: {
