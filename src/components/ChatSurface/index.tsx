@@ -157,7 +157,6 @@ const ChatSurface = () => {
               try {
                 // Simple and safer eval for basic calculations
                 const expression = params.expression as string
-                // eslint-disable-next-line no-new-func
                 const result = new Function(`return ${expression}`)()
                 console.log(`Calculation result for "${expression}": ${result}`)
                 return { result }
