@@ -1,4 +1,4 @@
-import { Agent, AgentResult, Guardrail, Handoff, Message, RunContext, Tool } from './primitives'
+import { Agent, Guardrail, Handoff, Tool } from './primitives'
 
 /**
  * BaseAgent class implementing the Agent interface
@@ -44,31 +44,6 @@ export class BaseAgent implements Agent {
     this.outputGuardrails = options?.outputGuardrails
     this.model = options?.model
     this.modelSettings = options?.modelSettings
-  }
-
-  /**
-   * Run the agent with the given input and context
-   *
-   * @param input Input to the agent (text or message array)
-   * @param context Optional context for the agent run
-   * @returns Promise resolving to the result of the agent run
-   */
-  async run(input: string | Message[], context?: RunContext): Promise<AgentResult> {
-    // In a real implementation, this would:
-    // 1. Apply input guardrails
-    // 2. Process the input with the LLM
-    // 3. Handle any tool calls
-    // 4. Check for handoffs
-    // 5. Apply output guardrails
-    // 6. Return the result
-
-    // This is a placeholder implementation
-    return {
-      finalOutput: "Placeholder implementation. This agent doesn't do anything yet.",
-      handoffPerformed: false,
-      toolCalls: [],
-      context,
-    }
   }
 
   /**

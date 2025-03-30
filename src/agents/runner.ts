@@ -785,11 +785,4 @@ export class Runner {
       return handoffTarget
     }
   }
-
-  /**
-   * Deep copy an object
-   */
-  private static deepCopy<T>(obj: T): T {
-    return JSON.parse(JSON.stringify(obj))
-  }
 }
