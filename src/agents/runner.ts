@@ -601,7 +601,7 @@ export class Runner {
       })
 
       // 4. Process the response to determine next steps
-      const processedResponse = await this.processModelResponse(modelResponse, agent)
+      const processedResponse = await this.processModelResponse(modelResponse)
 
       // 5. Handle tool calls, output generation, or handoffs
       if (processedResponse.handoffAgent) {
@@ -664,8 +664,7 @@ export class Runner {
    * Process the raw model response into a structured format
    */
   private static async processModelResponse(
-    modelResponse: GeminiModelResponse[],
-    agent: Agent
+    modelResponse: GeminiModelResponse[]
   ): Promise<AgentResult> {
     // Handle different response formats
     let finalOutput = ''
