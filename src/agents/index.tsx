@@ -1,7 +1,7 @@
 export interface AgentState {
   messages: Array<{
     role: string
-    content: string
+    parts: Array<string | Record<string, unknown>>
   }>
   currentAgent: string
   visitedNodes: string[]

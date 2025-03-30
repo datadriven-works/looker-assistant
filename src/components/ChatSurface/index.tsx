@@ -12,7 +12,7 @@ import {
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import { v4 as uuidv4 } from 'uuid'
-import { useGenerateContent, MessagePart } from '../../hooks/useGenerateContent'
+import { generateContent, MessagePart } from '../../hooks/useGenerateContent'
 import { Runner } from '../../agents/runner'
 import { Agent } from '../../agents/primitives'
 
@@ -65,7 +65,6 @@ const generateHistory = (messages: ChatMessage[]): MessagePart[] => {
 const ChatSurface = () => {
   const dispatch = useDispatch()
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
-  const { generateContent } = useGenerateContent()
 
   const { query, isQuerying, thread, user } = useSelector(
     (state: RootState) => state.assistant as AssistantState
@@ -209,13 +208,13 @@ const ChatSurface = () => {
         if (msg.type === 'text') {
           return {
             role: msg.actor === 'user' ? 'user' : 'model',
-            content: msg.message,
+            parts: [msg.message],
           }
         }
         // Handle function calls if needed
         return {
           role: 'user',
-          content: JSON.stringify(msg),
+          parts: [JSON.stringify(msg)],
         }
       })
 
@@ -223,29 +222,13 @@ const ChatSurface = () => {
 
       // Use the Runner to process the query with conversation history context
       const result = await Runner.run(basicAgent, messages, {
-        maxTurns: 10, // Allow a few turns for tool usage
+        maxTurns: 5, // Allow a few turns for tool usage
         context: {
           originalQuery: query,
           messages: messages,
           state: {
             user,
             thread: thread.uuid,
-            // Pass a wrapper that converts message format
-            generateContent: async (params) => {
-              // Convert from Runner format to MessagePart format expected by the API
-              const formattedMessages = generateHistory(contentList)
-
-              console.log('Using formatted messages for API:', formattedMessages)
-
-              return await generateContent({
-                contents: formattedMessages,
-                parameters: params.parameters,
-                responseSchema: params.responseSchema,
-                tools: params.tools,
-                modelName: params.modelName,
-                systemInstruction: params.systemInstruction,
-              })
-            },
           },
         },
       })

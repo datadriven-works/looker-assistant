@@ -1,4 +1,4 @@
-import { GenerateContentParams, MessagePart } from '../hooks/useGenerateContent'
+import { generateContent, MessagePart } from '../hooks/useGenerateContent'
 import {
   Agent,
   AgentResult,
@@ -8,7 +8,7 @@ import {
   RunContext,
   ToolCall,
 } from './primitives'
-
+import { v4 as uuidv4 } from 'uuid'
 /**
  * Result of running a single step in the agent loop
  */
@@ -285,6 +285,7 @@ export class Runner {
           shouldRunAgentStartHooks = true
         } else if (turnResult.nextStep.type === 'run_again') {
           // Just continue the loop
+          console.log('run_again')
         } else {
           const nextStepType = (turnResult.nextStep as { type: string }).type
           throw new Error(`Unknown next step type: ${nextStepType}`)
@@ -498,19 +499,56 @@ export class Runner {
       messages.push(...originalInput)
     }
 
+    // add the generated items as messages
+    if (generatedItems && generatedItems.length > 0) {
+      generatedItems.forEach((item) => {
+        // add function calls
+        if (typeof item === 'object' && item !== null && 'name' in item && 'parameters' in item) {
+          const itemUuid = uuidv4()
+
+          // this was a tool call
+          messages.push({
+            role: 'model',
+            parts: [
+              {
+                functionCall: {
+                  id: itemUuid,
+                  name: item.name,
+                  args: item.parameters || {},
+                },
+              },
+            ],
+          })
+
+          // add the result of the tool call as a message
+          if ('result' in item) {
+            messages.push({
+              role: 'user',
+              parts: [
+                {
+                  functionResponse: {
+                    id: itemUuid,
+                    name: item.name,
+                    response: {
+                      name: item.name,
+                      content: item.result,
+                    },
+                  },
+                },
+              ],
+            })
+          }
+        } else {
+          // add the generated item as a message
+        }
+      })
+    }
+
     console.log('originalInput', originalInput)
     console.log('messages', messages)
+
     // 3. Use the model to get a response
     try {
-      // Get the generateContent function from context
-      const generateContent = contextWrapper.context?.state?.generateContent as (
-        params: GenerateContentParams
-      ) => Promise<GeminiModelResponse[]>
-
-      if (!generateContent) {
-        throw new Error('generateContent function not provided in context')
-      }
-
       // Prepare handoffs for the model
       const handoffTools =
         agent.handoffs?.map((handoff) => ({
@@ -549,6 +587,8 @@ export class Runner {
             required: Object.keys(agent.outputType || {}),
           }
         : null
+
+      console.log('About to generate content with messages', messages)
 
       // Call the model
       const modelResponse = await generateContent({

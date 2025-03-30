@@ -10,7 +10,7 @@ import { GeminiModelResponse } from './runner'
  */
 export interface Message {
   role: string
-  content: string
+  parts: Array<string | Record<string, unknown>>
 }
 
 /**
