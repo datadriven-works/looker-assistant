@@ -101,6 +101,20 @@ const ChatSurface = () => {
       // Process the query with our agent system
       console.log('Processing with agent system...')
 
+      const exploreAgent: Agent = {
+        name: 'ExploreAgent',
+        description:
+          'You know everything about the Looker explores that the user is able to see. Including the defined dimensions and measures.',
+        getSystemPrompt: async () => {
+          return 'You are a helpful assistant that can answer questions about the Looker explores that the user is able to see. Including the defined dimensions and measures.'
+        },
+        modelSettings: {
+          model: 'gemini-2.0-flash',
+        },
+        handoffDescription:
+          'Always handoff to the explore agent if there is a question looker explore related. Questions like "What dimensions are there in the explore?", "What measures are there in the explore?", "What is the total revenue for the explore?", etc. There might also be questions like "What explore should I use to answer this question?"',
+      }
+
       const userAgent: Agent = {
         name: 'UserAssistant',
         description: 'A helpful assistant that answers questions directly.',
@@ -138,8 +152,9 @@ const ChatSurface = () => {
         handoffs: [
           {
             targetAgent: userAgent,
-            description:
-              'Always handoff to the user assistant if there is a question around the user like their groups, names, etc.',
+          },
+          {
+            targetAgent: exploreAgent,
           },
         ],
 
