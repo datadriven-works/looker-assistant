@@ -66,7 +66,7 @@ const ChatSurface = () => {
   const dispatch = useDispatch()
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
 
-  const { query, isQuerying, thread, user } = useSelector(
+  const { query, isQuerying, thread, user, semanticModels } = useSelector(
     (state: RootState) => state.assistant as AssistantState
   )
 
@@ -101,6 +101,22 @@ const ChatSurface = () => {
       // Process the query with our agent system
       console.log('Processing with agent system...')
 
+      const injectedExploreAgentMessages: MessagePart[] = []
+
+      Object.keys(semanticModels).forEach((exploreKey) => {
+        const explore = semanticModels[exploreKey]
+        injectedExploreAgentMessages.push({
+          role: 'user',
+          parts: [
+            `The explore ${exploreKey} has the following dimensions: ${explore.dimensions
+              .map((dimension) => dimension.name)
+              .join(', ')}`,
+            `The explore ${exploreKey} has the following measures: ${explore.measures
+              .map((measure) => measure.name)
+              .join(', ')}`,
+          ],
+        })
+      })
       const exploreAgent: Agent = {
         name: 'ExploreAgent',
         description:
@@ -113,12 +129,7 @@ const ChatSurface = () => {
         },
         handoffDescription:
           'Always handoff to the explore agent if there is a question looker explore related. Questions like "What dimensions are there in the explore?", "What measures are there in the explore?", "What is the total revenue for the explore?", etc. There might also be questions like "What explore should I use to answer this question?"',
-        injectMessages: [
-          {
-            role: 'user',
-            parts: ['The explores that are defined are called Sales Orders and Order Items'],
-          },
-        ],
+        injectMessages: injectedExploreAgentMessages,
       }
 
       const userAgent: Agent = {
