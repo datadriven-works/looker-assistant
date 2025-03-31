@@ -1,7 +1,7 @@
 import Thread from '../Thread'
 import PromptInput from '../PromptInput'
 import { useDispatch, useSelector } from 'react-redux'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   addMessage,
   AssistantState,
@@ -14,7 +14,7 @@ import { RootState } from '../../store'
 import { v4 as uuidv4 } from 'uuid'
 import { generateContent, MessagePart } from '../../hooks/useGenerateContent'
 import { Runner } from '../../agents/runner'
-import { Agent } from '../../agents/primitives'
+import { Agent, Handoff } from '../../agents/primitives'
 
 // Ensure our generateHistory function correctly maps to MessagePart objects
 const generateHistory = (messages: ChatMessage[]): MessagePart[] => {
@@ -66,9 +66,13 @@ const ChatSurface = () => {
   const dispatch = useDispatch()
   const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
 
-  const { query, isQuerying, thread, user, semanticModels } = useSelector(
+  const { query, isQuerying, thread, user, semanticModels, dashboard } = useSelector(
     (state: RootState) => state.assistant as AssistantState
   )
+
+  const isMountedOnDashboard = useMemo(() => {
+    return dashboard?.id && dashboard?.elementId
+  }, [dashboard])
 
   const scrollIntoView = useCallback(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -117,6 +121,32 @@ const ChatSurface = () => {
           ],
         })
       })
+
+      const injectedDashboardAgentMessages: MessagePart[] = []
+      if (isMountedOnDashboard) {
+        injectedDashboardAgentMessages.push({
+          role: 'user',
+          parts: [
+            'Here are the details about the dashboard you are embedded in: ' +
+              JSON.stringify(dashboard),
+          ],
+        })
+      }
+
+      const dashboardAgent: Agent = {
+        name: 'DashboardAgent',
+        description: 'You know everything about the Looker dashboard that the user is able to see.',
+        getSystemPrompt: async () => {
+          return 'You are a helpful assistant that can answer questions about the Looker dashboard that the user is able to see.'
+        },
+        injectMessages: injectedDashboardAgentMessages,
+        modelSettings: {
+          model: 'gemini-2.0-flash',
+        },
+        handoffDescription:
+          'The assistant is mounted on a dashboard. If the user asks about the dashboard, handoff to this agent.',
+      }
+
       const exploreAgent: Agent = {
         name: 'ExploreAgent',
         description:
@@ -149,13 +179,35 @@ const ChatSurface = () => {
       }
 
       // Create a basic agent with no handoff capabilities
+      const handoffs: Handoff[] = [
+        {
+          targetAgent: userAgent,
+        },
+        {
+          targetAgent: exploreAgent,
+        },
+      ]
+
+      let basicAgentSystemPrompt =
+        "You are a helpful, concise assistant. Provide accurate and useful information to the user's questions. You are embedded in Looker, which is a Business Intelligence tool made by Google. You are either in stand-alone mode, or embedded in a dashboard. If you are embedded in a dashboard, you can answer questions about the dashboard. If you are in stand-alone mode, you can answer questions about Looker. You can also perform calculations and get current time when needed. You have the ability to handoff to other agents who are going to be experts in their respective fields."
+
+      if (isMountedOnDashboard) {
+        basicAgentSystemPrompt +=
+          'You are embedded in a dashboard. If the user asks about the dashboard, handoff to the dashboard agent.'
+        handoffs.push({
+          targetAgent: dashboardAgent,
+        })
+      }
+
+      console.log('handoffs', handoffs)
+
       const basicAgent: Agent = {
         name: 'BasicAssistant',
         description: 'A helpful assistant that answers questions directly.',
 
         // Return a system prompt for the agent
         getSystemPrompt: async () => {
-          return "You are a helpful, concise assistant. Provide accurate and useful information to the user's questions. You can perform calculations and get current time when needed."
+          return basicAgentSystemPrompt
         },
 
         // Basic model settings
@@ -166,14 +218,7 @@ const ChatSurface = () => {
           topP: 0.95,
         },
 
-        handoffs: [
-          {
-            targetAgent: userAgent,
-          },
-          {
-            targetAgent: exploreAgent,
-          },
-        ],
+        handoffs,
 
         // Add some basic tools
         tools: [
