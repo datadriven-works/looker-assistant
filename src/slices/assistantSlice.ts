@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
-
+import { Filters } from '@looker/extension-sdk'
 export interface Setting {
   name: string
   description: string
@@ -73,6 +73,14 @@ export interface SemanticModel {
   modelName: string
 }
 
+export interface Dashboard {
+  id: string
+  elementId: string
+  queries: any[]
+  description: string
+  filters: Filters
+}
+
 export interface User {
   id: string
   email: string
@@ -95,6 +103,7 @@ export interface AssistantState {
   query: string
   settings: Settings
   explores: ExploreDefinition[]
+  dashboard: Dashboard | null
 
   isMetadataLoaded: boolean
 }
@@ -120,6 +129,7 @@ export const initialState: AssistantState = {
   assistantConfig: {},
   settings: {},
   explores: [],
+  dashboard: null,
   isMetadataLoaded: false,
 }
 
@@ -170,6 +180,9 @@ export const assistantSlice = createSlice({
     setSemanticModels: (state, action: PayloadAction<Record<string, SemanticModel>>) => {
       state.semanticModels = action.payload
     },
+    setDashboard: (state, action: PayloadAction<Dashboard>) => {
+      state.dashboard = action.payload
+    },
   },
 })
 
@@ -184,6 +197,7 @@ export const {
   setExplores,
   setSetting,
   resetSettings,
+  setDashboard,
 
   setUser,
 } = assistantSlice.actions

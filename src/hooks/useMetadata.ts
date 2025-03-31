@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useContext, useCallback, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { getCore40SDK } from '@looker/extension-sdk-react'
+import { ExtensionContext40, getCore40SDK } from '@looker/extension-sdk-react'
 import {
   setIsMetadataLoaded,
   setUser,
@@ -9,12 +9,15 @@ import {
   setExplores,
   setSemanticModels,
   SemanticModel,
+  setDashboard,
 } from '../slices/assistantSlice'
 import { RootState } from '../store'
 
 export const useMetadata = () => {
   const dispatch = useDispatch()
   const sdk = getCore40SDK()
+  const { tileHostData } = useContext(ExtensionContext40)
+  const [dashboardDataFetched, setDashboardDataFetched] = useState(false)
 
   const { assistantConfig } = useSelector((state: RootState) => state.assistant)
 
@@ -85,6 +88,42 @@ export const useMetadata = () => {
       return undefined
     }
   }
+
+  const getDashboard = useCallback(async () => {
+    if (!tileHostData.dashboardId || !tileHostData.elementId) {
+      return
+    }
+
+    const dashboardMetadata = {
+      filters: tileHostData.dashboardFilters || {},
+      id: tileHostData.dashboardId,
+      elementId: tileHostData.elementId,
+      queries: await sdk
+        .ok(
+          sdk.dashboard_dashboard_elements(
+            tileHostData.dashboardId as string,
+            'query,result_maker,note_text,title,query_id'
+          )
+        )
+        .then((elements) =>
+          elements
+            .filter((element) => element.query || element.result_maker)
+            .map((element) => {
+              const { query, note_text, title } = element
+              return {
+                queryBody: query || element.result_maker?.query,
+                note_text,
+                title,
+              }
+            })
+        ),
+      description: await sdk
+        .ok(sdk.dashboard(tileHostData.dashboardId as string, 'description'))
+        .then((res) => res.description || ''),
+    }
+
+    dispatch(setDashboard(dashboardMetadata))
+  }, [tileHostData])
 
   const getExplores = async () => {
     try {
@@ -186,6 +225,13 @@ export const useMetadata = () => {
   useEffect(() => {
     loadConfig()
   }, [])
+
+  useEffect(() => {
+    if (tileHostData.dashboardId && tileHostData.elementId && !dashboardDataFetched) {
+      getDashboard()
+      setDashboardDataFetched(true)
+    }
+  }, [tileHostData])
 
   useEffect(() => {
     if (assistantConfig) {
