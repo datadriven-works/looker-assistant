@@ -316,19 +316,30 @@ export default defineConfig(({ mode }) => {
       cssCodeSplit: false,
       // Disable code splitting entirely
       target: 'esnext',
-      // Disable minification for both development and production
-      minify: false,
+      // Conditionally apply minification based on mode
+      minify: isDevelopment ? false : 'terser',
+      // Configure Terser options for production
+      terserOptions: isDevelopment
+        ? undefined
+        : {
+            compress: {
+              drop_console: true,
+              drop_debugger: true,
+            },
+          },
       rollupOptions: {
         input: path.resolve(__dirname, 'src/index.tsx'),
         output: {
-          format: 'iife',
+          // Use appropriate format based on mode
+          format: isDevelopment ? 'iife' : 'es',
           entryFileNames: 'bundle.js',
+          // Always inline dynamic imports for both dev and prod to maintain compatibility with format
           inlineDynamicImports: true,
         },
       },
-      sourcemap: true,
-      // Configure Vite to inline assets under this size threshold
-      assetsInlineLimit: 100000000, // Basically infinite - force inline all assets
+      sourcemap: isDevelopment,
+      // Configure Vite to inline assets with different thresholds based on mode
+      assetsInlineLimit: isDevelopment ? 100000000 : 4096, // Large for dev, 4KB for production
     },
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.scss', '.css'],
