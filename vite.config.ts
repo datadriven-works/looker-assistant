@@ -252,6 +252,25 @@ const lookerBundlePlugin: Plugin = {
   },
 }
 
+// Plugin to handle YAML files
+const yamlPlugin: Plugin = {
+  name: 'yaml-loader',
+  transform(code, id) {
+    if (id.endsWith('.yaml') || id.endsWith('.yml')) {
+      try {
+        // Return the YAML as a JS module
+        return {
+          code: `export default ${JSON.stringify(code)};`,
+          map: null,
+        }
+      } catch (error) {
+        console.error('Error processing YAML file:', error)
+        return null
+      }
+    }
+  },
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const isDevelopment = mode === 'development'
@@ -260,6 +279,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       processEnvPlugin,
+      yamlPlugin,
       visualizer({
         open: process.env.ANALYZE === 'true',
         filename: 'dist/stats.html',

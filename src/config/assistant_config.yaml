@@ -1,0 +1,7 @@
+sample_prompts:
+  "faa:us_airports":
+    - How many airports are there?
+    - What are the different airport types?
+explore_whitelist:
+explore_blacklist:
+allowed_looker_group_ids:
