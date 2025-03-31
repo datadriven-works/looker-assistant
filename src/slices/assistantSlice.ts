@@ -79,6 +79,7 @@ export interface Dashboard {
   queries: any[]
   description: string
   filters: Filters
+  data: any[]
 }
 
 export interface User {
@@ -183,6 +184,11 @@ export const assistantSlice = createSlice({
     setDashboard: (state, action: PayloadAction<Dashboard>) => {
       state.dashboard = action.payload
     },
+    setDashboardData: (state, action: PayloadAction<any[]>) => {
+      if (state.dashboard) {
+        state.dashboard.data = action.payload
+      }
+    },
   },
 })
 
@@ -198,7 +204,7 @@ export const {
   setSetting,
   resetSettings,
   setDashboard,
-
+  setDashboardData,
   setUser,
 } = assistantSlice.actions
 

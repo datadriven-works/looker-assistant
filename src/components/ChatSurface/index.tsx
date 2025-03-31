@@ -124,13 +124,21 @@ const ChatSurface = () => {
 
       const injectedDashboardAgentMessages: MessagePart[] = []
       if (isMountedOnDashboard) {
-        injectedDashboardAgentMessages.push({
-          role: 'user',
-          parts: [
-            'Here are the details about the dashboard you are embedded in: ' +
-              JSON.stringify(dashboard),
-          ],
-        })
+        injectedDashboardAgentMessages.push(
+          {
+            role: 'user',
+            parts: [
+              'Here are the details about the dashboard you are embedded in: ' +
+                dashboard?.data.map((query) => query.queryTitle).join(', ') +
+                '\n \n Here is the description of the dashboard: ' +
+                dashboard?.description,
+            ],
+          },
+          {
+            role: 'user',
+            parts: ['Here is the data for the dashboard: ' + JSON.stringify(dashboard?.data)],
+          }
+        )
       }
 
       const dashboardAgent: Agent = {

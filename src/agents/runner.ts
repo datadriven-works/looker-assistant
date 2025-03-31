@@ -487,13 +487,13 @@ export class Runner {
     // 2. Prepare the input including all generated items
     const messages: MessagePart[] = []
 
-    // Add all messages from the input
-    messages.push(...originalInput)
-
-    // add any inject messages
+    // add any inject messages as context in the conversation
     if (agent.injectMessages && agent.injectMessages.length > 0) {
       messages.push(...agent.injectMessages)
     }
+
+    // Add all messages from the input
+    messages.push(...originalInput)
 
     // add the generated items as messages
     if (generatedItems && generatedItems.length > 0) {

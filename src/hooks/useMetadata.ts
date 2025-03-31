@@ -10,6 +10,7 @@ import {
   setSemanticModels,
   SemanticModel,
   setDashboard,
+  setDashboardData,
 } from '../slices/assistantSlice'
 import { RootState } from '../store'
 
@@ -120,9 +121,52 @@ export const useMetadata = () => {
       description: await sdk
         .ok(sdk.dashboard(tileHostData.dashboardId as string, 'description'))
         .then((res) => res.description || ''),
+      data: [],
     }
 
+    console.log('dashboardMetadata', dashboardMetadata)
     dispatch(setDashboard(dashboardMetadata))
+
+    if (dashboardMetadata && dashboardMetadata.queries) {
+      const queryPromises = dashboardMetadata.queries.map(async (query) => {
+        if (!query.queryBody) {
+          return
+        }
+
+        let queryData
+        try {
+          queryData = await sdk.ok(
+            sdk.run_inline_query({
+              body: query.queryBody,
+              result_format: 'csv',
+              cache: true,
+              apply_formatting: true,
+              limit: 200,
+            })
+          )
+          console.log('queryData: ', queryData)
+          console.log('query: ', query)
+          console.log('dashboardMetadata.description: ', dashboardMetadata.description)
+        } catch (err) {
+          // Handle the failure of this specific query
+          console.error('Error running inline query: ', err)
+          // Decide how you want to handle the data if the query fails:
+          // e.g., set to null, empty string, or an empty array
+          queryData = null
+        }
+
+        return {
+          queryDescription: dashboardMetadata.description,
+          queryTitle: query.title,
+          queryNote: query.note_text || 'No query note provided.',
+          queryFields: query.queryBody?.fields,
+          queryData,
+        }
+      })
+
+      const querySummaries = await Promise.all(queryPromises)
+      dispatch(setDashboardData(querySummaries))
+    }
   }, [tileHostData])
 
   const getExplores = async () => {
