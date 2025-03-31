@@ -1,0 +1,18 @@
+# Copy this file to explore_config.yaml and customize the prompts
+sample_prompts:
+  "thelook:order_items":
+    - Show me total sales by category over the last 12 months
+    - What are our top 10 performing products by revenue?
+  "thelook:users":
+    - Show me user registration trends by state
+    - What's the distribution of users by age group? 
+  "thelook:inventory_items":
+    - What's our current inventory level by brand?
+    - Show me products with low stock levels
+    - Which categories have the highest cost of goods sold?
+explore_whitelist:
+  - thelook:order_items
+explore_blacklist:
+  - thelook:users
+allowed_looker_group_ids:
+  - 81

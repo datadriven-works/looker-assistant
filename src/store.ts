@@ -8,7 +8,6 @@ import assistantReducer, { AssistantState, initialState, Settings } from './slic
 const neverPersistKeys: (keyof AssistantState)[] = [
   'semanticModels',
   'isMetadataLoaded',
-  'isSemanticModelLoaded',
   'user',
   'isQuerying',
   'query',

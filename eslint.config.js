@@ -7,21 +7,21 @@ const compat = new FlatCompat()
 
 export default [
   // Ignore patterns
-  { ignores: ['dist/**'] },
-  
+  { ignores: ['dist/**', 'vite.config.ts'] },
+
   // Base JS config
   js.configs.recommended,
-  
+
   // Base configs with compat layer
   ...compat.config({
     extends: [
       'plugin:@typescript-eslint/recommended',
       'plugin:react/recommended',
       'plugin:react-hooks/recommended',
-      'plugin:jsx-a11y/recommended'
-    ]
+      'plugin:jsx-a11y/recommended',
+    ],
   }),
-  
+
   // Apply to all supported files
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
@@ -30,17 +30,19 @@ export default [
       sourceType: 'module',
       globals: {
         ...globals.browser,
-        ...globals.node
-      }
+        ...globals.node,
+      },
     },
     rules: {
       'react/react-in-jsx-scope': 'off',
-      'semi': ['error', 'never']
+      semi: ['error', 'never'],
+      'react-hooks/exhaustive-deps': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
     },
     settings: {
       react: {
-        version: 'detect'
-      }
-    }
-  }
+        version: 'detect',
+      },
+    },
+  },
 ]

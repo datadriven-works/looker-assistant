@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
-
+import { Filters } from '@looker/extension-sdk'
 export interface Setting {
   name: string
   description: string
@@ -11,11 +11,25 @@ export interface Settings {
   [key: string]: Setting
 }
 
+export interface AssistantConfig {
+  sample_prompts?: Record<string, string[]>
+  explore_whitelist?: string[]
+  explore_blacklist?: string[]
+  allowed_looker_group_ids?: string[]
+}
+
 interface Field {
   name: string
   type: string
   description: string
   tags: string[]
+}
+
+export interface ExploreDefinition {
+  exploreKey: string
+  modelName: string
+  exploreId: string
+  samples: string[]
 }
 
 export interface TextMessage {
@@ -59,6 +73,15 @@ export interface SemanticModel {
   modelName: string
 }
 
+export interface Dashboard {
+  id: string
+  elementId: string
+  queries: any[]
+  description: string
+  filters: Filters
+  data: any[]
+}
+
 export interface User {
   id: string
   email: string
@@ -77,10 +100,13 @@ export interface AssistantState {
   semanticModels: {
     [exploreKey: string]: SemanticModel
   }
+  assistantConfig: AssistantConfig
   query: string
   settings: Settings
+  explores: ExploreDefinition[]
+  dashboard: Dashboard | null
+
   isMetadataLoaded: boolean
-  isSemanticModelLoaded: boolean
 }
 
 export const newThreadState = () => {
@@ -101,15 +127,11 @@ export const initialState: AssistantState = {
   thread: newThreadState(),
   query: '',
   semanticModels: {},
-  settings: {
-    show_explore_data: {
-      name: 'Show Explore Data',
-      description: 'By default, expand the data panel in the Explore',
-      value: false,
-    },
-  },
+  assistantConfig: {},
+  settings: {},
+  explores: [],
+  dashboard: null,
   isMetadataLoaded: false,
-  isSemanticModelLoaded: false,
 }
 
 export const assistantSlice = createSlice({
@@ -131,6 +153,12 @@ export const assistantSlice = createSlice({
         state.settings[id].value = value
       }
     },
+    setAssistantConfig: (state, action: PayloadAction<AssistantConfig>) => {
+      state.assistantConfig = action.payload
+    },
+    setExplores(state, action: PayloadAction<ExploreDefinition[]>) {
+      state.explores = action.payload
+    },
     setUser: (state, action: PayloadAction<User>) => {
       state.user = action.payload
     },
@@ -150,8 +178,16 @@ export const assistantSlice = createSlice({
     setIsMetadataLoaded: (state, action: PayloadAction<boolean>) => {
       state.isMetadataLoaded = action.payload
     },
-    setIsSemanticModelLoaded: (state, action: PayloadAction<boolean>) => {
-      state.isSemanticModelLoaded = action.payload
+    setSemanticModels: (state, action: PayloadAction<Record<string, SemanticModel>>) => {
+      state.semanticModels = action.payload
+    },
+    setDashboard: (state, action: PayloadAction<Dashboard>) => {
+      state.dashboard = action.payload
+    },
+    setDashboardData: (state, action: PayloadAction<any[]>) => {
+      if (state.dashboard) {
+        state.dashboard.data = action.payload
+      }
     },
   },
 })
@@ -162,11 +198,13 @@ export const {
   resetChat,
   addMessage,
   setIsMetadataLoaded,
-  setIsSemanticModelLoaded,
-
+  setAssistantConfig,
+  setSemanticModels,
+  setExplores,
   setSetting,
   resetSettings,
-
+  setDashboard,
+  setDashboardData,
   setUser,
 } = assistantSlice.actions
 

@@ -27,11 +27,9 @@ export const getRelativeTimeString = (dateStr: string | Date) => {
   if (diffInSeconds < 1) {
     relativeTime = 'just now'
   } else if (diffInSeconds < 60) {
-    relativeTime =
-      diffInSeconds === 1 ? '1 second ago' : `${diffInSeconds} seconds ago`
+    relativeTime = diffInSeconds === 1 ? '1 second ago' : `${diffInSeconds} seconds ago`
   } else if (diffInMinutes < 60) {
-    relativeTime =
-      diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`
+    relativeTime = diffInMinutes === 1 ? '1 minute ago' : `${diffInMinutes} minutes ago`
   } else if (diffInHours < 24) {
     relativeTime = diffInHours === 1 ? '1 hour ago' : `${diffInHours} hours ago`
   } else if (diffInDays <= 2) {
@@ -73,18 +71,14 @@ interface MessageProps {
 }
 
 const Message = ({ message, actor, children }: MessageProps) => (
-  <div
-    className={`flex ${
-      actor === 'user' ? 'justify-end' : 'justify-start'
-    } mb-4`}
-  >
+  <div className={`flex ${actor === 'user' ? 'justify-end' : 'justify-start'} mb-4 mx-4`}>
     <div className={`max-w-[70%] ${actor === 'user' ? 'order-2' : 'order-1'}`}>
       <div
         className={clsx(
           'rounded-lg p-3 max-w-xl overflow-hidden',
           actor === 'user'
             ? 'bg-[rgb(237,243,253)] text-gray-800'
-            : 'bg-[rgb(242,242,242)] text-gray-800',
+            : 'bg-[rgb(242,242,242)] text-gray-800'
         )}
       >
         <div className="text-wrap break-words">{message && <MarkdownText text={message} />}</div>

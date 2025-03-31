@@ -252,6 +252,25 @@ const lookerBundlePlugin: Plugin = {
   },
 }
 
+// Plugin to handle YAML files
+const yamlPlugin: Plugin = {
+  name: 'yaml-loader',
+  transform(code, id) {
+    if (id.endsWith('.yaml') || id.endsWith('.yml')) {
+      try {
+        // Return the YAML as a JS module
+        return {
+          code: `export default ${JSON.stringify(code)};`,
+          map: null,
+        }
+      } catch (error) {
+        console.error('Error processing YAML file:', error)
+        return null
+      }
+    }
+  },
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const isDevelopment = mode === 'development'
@@ -260,6 +279,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       processEnvPlugin,
+      yamlPlugin,
       visualizer({
         open: process.env.ANALYZE === 'true',
         filename: 'dist/stats.html',
@@ -296,19 +316,30 @@ export default defineConfig(({ mode }) => {
       cssCodeSplit: false,
       // Disable code splitting entirely
       target: 'esnext',
-      // Disable minification for both development and production
-      minify: false,
+      // Conditionally apply minification based on mode
+      minify: isDevelopment ? false : 'terser',
+      // Configure Terser options for production
+      terserOptions: isDevelopment
+        ? undefined
+        : {
+            compress: {
+              drop_console: true,
+              drop_debugger: true,
+            },
+          },
       rollupOptions: {
         input: path.resolve(__dirname, 'src/index.tsx'),
         output: {
-          format: 'iife',
+          // Use appropriate format based on mode
+          format: isDevelopment ? 'iife' : 'es',
           entryFileNames: 'bundle.js',
+          // Always inline dynamic imports for both dev and prod to maintain compatibility with format
           inlineDynamicImports: true,
         },
       },
-      sourcemap: true,
-      // Configure Vite to inline assets under this size threshold
-      assetsInlineLimit: 100000000, // Basically infinite - force inline all assets
+      sourcemap: isDevelopment,
+      // Configure Vite to inline assets with different thresholds based on mode
+      assetsInlineLimit: isDevelopment ? 100000000 : 4096, // Large for dev, 4KB for production
     },
     resolve: {
       extensions: ['.tsx', '.ts', '.js', '.scss', '.css'],
