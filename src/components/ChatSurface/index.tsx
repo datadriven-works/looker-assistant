@@ -1,7 +1,7 @@
 import Thread from '../Thread'
 import PromptInput from '../PromptInput'
 import { useDispatch, useSelector } from 'react-redux'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import {
   addMessage,
   AssistantState,
@@ -64,23 +64,14 @@ const generateHistory = (messages: ChatMessage[]): MessagePart[] => {
 
 const ChatSurface = () => {
   const dispatch = useDispatch()
-  const endOfMessagesRef = useRef<HTMLDivElement>(null) // Ref for the last message
 
-  const { query, isQuerying, thread, user, semanticModels, dashboard } = useSelector(
+  const { query, thread, user, semanticModels, dashboard } = useSelector(
     (state: RootState) => state.assistant as AssistantState
   )
 
   const isMountedOnDashboard = useMemo(() => {
     return dashboard?.id && dashboard?.elementId
   }, [dashboard])
-
-  const scrollIntoView = useCallback(() => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [endOfMessagesRef])
-
-  useEffect(() => {
-    scrollIntoView()
-  }, [dispatch, query, isQuerying])
 
   const submitMessage = useCallback(async () => {
     if (query === '') {
@@ -345,9 +336,6 @@ const ChatSurface = () => {
 
     dispatch(setIsQuerying(false))
     dispatch(setQuery(''))
-
-    // scroll to bottom of message thread
-    scrollIntoView()
   }, [dispatch, query, thread?.messages, generateContent, user])
 
   useEffect(() => {
@@ -356,14 +344,13 @@ const ChatSurface = () => {
     }
 
     submitMessage()
-    scrollIntoView()
   }, [query])
 
   return (
     <div className="flex flex-col h-screen">
       <div className="flex-grow overflow-y-auto max-h-full">
         <div className="max-w-4xl mx-auto mt-8">
-          <Thread endOfMessagesRef={endOfMessagesRef} />
+          <Thread />
         </div>
       </div>
       <div

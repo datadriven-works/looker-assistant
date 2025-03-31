@@ -1,31 +1,36 @@
 import { useSelector } from 'react-redux'
 import { RootState } from '../store'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import FunctionCallMessage from './ChatSurface/FunctionCallMessage'
 import FunctionCallResponseMessage from './ChatSurface/FunctionCallResponseMessage'
 import Message from './ChatSurface/Message'
 import { LinearProgress } from '@mui/material'
 
-interface ThreadProps {
-  endOfMessagesRef: React.RefObject<HTMLDivElement>
-}
-const Thread = ({ endOfMessagesRef }: ThreadProps) => {
+const Thread = () => {
   const { isQuerying, thread } = useSelector((state: RootState) => state.assistant)
 
-  const scrollIntoView = useCallback(() => {
-    if (endOfMessagesRef?.current) {
-      endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth' })
+  // Create a ref for the thread container
+  const threadContainerRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = useCallback(() => {
+    if (threadContainerRef?.current) {
+      const container = threadContainerRef.current
+      container.scrollTop = container.scrollHeight
     }
-  }, [endOfMessagesRef])
+  }, [threadContainerRef])
 
   useEffect(() => {
-    scrollIntoView()
-  }, [thread?.messages])
+    scrollToBottom()
+  }, [thread?.messages, scrollToBottom])
 
   const messages = thread?.messages
 
   return (
-    <div className="">
+    <div
+      ref={threadContainerRef}
+      className="relative overflow-y-auto"
+      style={{ maxHeight: 'calc(100vh - 200px)' }} // Adjust this value based on your layout
+    >
       {messages.map((message) => {
         if (message.type === 'functionCall') {
           return <FunctionCallMessage key={message.uuid} message={message} />
@@ -47,7 +52,6 @@ const Thread = ({ endOfMessagesRef }: ThreadProps) => {
           <LinearProgress />
         </div>
       )}
-      <div ref={endOfMessagesRef} />
     </div>
   )
 }
