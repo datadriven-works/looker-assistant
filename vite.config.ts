@@ -319,14 +319,12 @@ export default defineConfig(({ mode }) => {
       // Conditionally apply minification based on mode
       minify: isDevelopment ? false : 'terser',
       // Configure Terser options for production
-      terserOptions: isDevelopment
-        ? undefined
-        : {
-            compress: {
-              drop_console: true,
-              drop_debugger: true,
-            },
-          },
+      terserOptions: {
+        compress: {
+          drop_console: false,
+          drop_debugger: false,
+        },
+      },
       rollupOptions: {
         input: path.resolve(__dirname, 'src/index.tsx'),
         output: {
