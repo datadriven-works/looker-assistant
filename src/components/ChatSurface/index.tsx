@@ -352,14 +352,12 @@ const ChatSurface = () => {
 
   return (
     <div className="flex flex-col h-screen">
-      <div className="flex-grow overflow-y-auto max-h-full">
-        <div className="max-w-4xl mx-auto mt-8">
+      <div className="flex-grow overflow-hidden relative">
+        <div className="absolute inset-0 max-w-4xl mx-auto overflow-y-auto scroll-smooth">
           <Thread />
         </div>
       </div>
-      <div
-        className={`flex justify-center duration-300 ease-in-out py-5 bg-gray-50 border-t border-gray-200 shadow-t-sm`}
-      >
+      <div className="flex justify-center py-5 bg-gray-50 border-t border-gray-200 shadow-md">
         <PromptInput />
       </div>
     </div>

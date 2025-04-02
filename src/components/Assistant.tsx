@@ -3,6 +3,7 @@ import { RootState } from '../store'
 import ChatSurface from './ChatSurface'
 import { Loading } from './Loading'
 import { useMetadata } from '../hooks/useMetadata'
+
 const Assistant = () => {
   const { isMetadataLoaded } = useSelector((state: RootState) => state.assistant)
   useMetadata()
@@ -12,7 +13,7 @@ const Assistant = () => {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-screen w-full overflow-hidden">
       <ChatSurface />
     </div>
   )

@@ -8,25 +8,49 @@ import { LinearProgress } from '@mui/material'
 
 const Thread = () => {
   const { isQuerying, thread } = useSelector((state: RootState) => state.assistant)
-
-  // Create a ref for the thread container
-  const threadContainerRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = useCallback(() => {
-    if (threadContainerRef?.current) {
-      const container = threadContainerRef.current
-      container.scrollTop = container.scrollHeight
+    if (messagesEndRef.current) {
+      try {
+        // Use both methods for better browser compatibility
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' })
+
+        // Find scrollable parent as fallback
+        let parent = messagesEndRef.current.parentElement
+        while (parent) {
+          const hasScrollableContent = parent.scrollHeight > parent.clientHeight
+          if (hasScrollableContent && getComputedStyle(parent).overflowY === 'auto') {
+            parent.scrollTop = parent.scrollHeight
+            break
+          }
+          parent = parent.parentElement
+        }
+      } catch (error) {
+        console.error('Failed to scroll to bottom:', error)
+      }
     }
-  }, [threadContainerRef])
+  }, [])
 
+  // Add a short delay to ensure content is fully rendered before scrolling
+  const delayedScrollToBottom = useCallback(() => {
+    setTimeout(scrollToBottom, 100)
+  }, [scrollToBottom])
+
+  // Scroll when messages change
   useEffect(() => {
-    scrollToBottom()
-  }, [thread?.messages, scrollToBottom])
+    delayedScrollToBottom()
+  }, [thread?.messages, delayedScrollToBottom])
 
-  const messages = thread?.messages
+  // Scroll on initial load
+  useEffect(() => {
+    delayedScrollToBottom()
+  }, [])
+
+  const messages = thread?.messages || []
 
   return (
-    <div ref={threadContainerRef} className="relative overflow-y-auto h-full">
+    <div className="flex flex-col min-h-full py-4 space-y-4">
       {messages.map((message) => {
         if (message.type === 'functionCall') {
           return <FunctionCallMessage key={message.uuid} message={message} />
@@ -42,12 +66,14 @@ const Thread = () => {
             />
           )
         }
+        return null
       })}
       {isQuerying && (
-        <div className="flex flex-col text-gray-300 size-8 w-64">
+        <div className="flex flex-col w-64 text-gray-300">
           <LinearProgress />
         </div>
       )}
+      <div ref={messagesEndRef} className="h-0 w-full clear-both" />
     </div>
   )
 }
