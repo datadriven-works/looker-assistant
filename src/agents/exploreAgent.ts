@@ -315,19 +315,18 @@ export const buildExploreAgent = (semanticModels: {
   const injectedExploreAgentMessages: MessagePart[] = []
 
   if (semanticModels) {
+    let allExploresData = ''
+
     Object.keys(semanticModels).forEach((exploreKey) => {
       const explore = semanticModels[exploreKey]
-      injectedExploreAgentMessages.push({
-        role: 'user',
-        parts: [
-          `The explore ${exploreKey} has the following dimensions: ${explore.dimensions
-            .map((dimension: any) => dimension.name)
-            .join(', ')}`,
-          `The explore ${exploreKey} has the following measures: ${explore.measures
-            .map((measure: any) => measure.name)
-            .join(', ')}`,
-        ],
-      })
+      allExploresData += `# Explore: ${exploreKey}\n\n`
+      allExploresData += formatExploreData(explore.dimensions, explore.measures)
+      allExploresData += '\n\n'
+    })
+
+    injectedExploreAgentMessages.push({
+      role: 'user',
+      parts: [allExploresData],
     })
   }
 
