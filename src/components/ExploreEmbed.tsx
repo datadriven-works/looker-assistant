@@ -2,8 +2,6 @@ import React, { useContext, useRef, useEffect } from 'react'
 import styled from 'styled-components'
 import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { ExtensionContext } from '@looker/extension-sdk-react'
-import { useSelector } from 'react-redux'
-import { RootState } from '../store'
 import { ExploreParams } from '../slices/assistantSlice'
 import { ExploreHelper } from '../utils/ExploreHelper'
 
@@ -18,7 +16,6 @@ export const ExploreEmbed = ({ modelName, exploreId, exploreParams }: ExploreEmb
 
   const { extensionSDK } = useContext(ExtensionContext)
   const [exploreRunStart, setExploreRunStart] = React.useState(false)
-  const { settings } = useSelector((state: RootState) => state.assistant)
 
   const canceller = (event: any) => {
     return { cancel: !event.modal }
@@ -35,6 +32,10 @@ export const ExploreEmbed = ({ modelName, exploreId, exploreParams }: ExploreEmb
   useEffect(() => {
     const hostUrl = extensionSDK?.lookerHostData?.hostUrl
     const el = ref.current
+    console.log('Explore Embed - Host URL', hostUrl)
+    console.log('Explore Embed - Explore Params', exploreParams)
+    console.log('Explore Embed - Model Name', modelName)
+    console.log('Explore Embed - Explore ID', exploreId)
     if (el && hostUrl && exploreParams) {
       const paramsObj: any = {
         // For Looker Original use window.origin for Looker Core use hostUrl
@@ -45,10 +46,6 @@ export const ExploreEmbed = ({ modelName, exploreId, exploreParams }: ExploreEmb
           background_color: '#f4f6fa',
         }),
         toggle: 'pik,vis,dat',
-      }
-
-      if (settings['show_explore_data'].value) {
-        paramsObj['toggle'] = 'pik,vis'
       }
 
       console.log('Explore Params for embed', exploreParams)
@@ -82,7 +79,6 @@ export const ExploreEmbed = ({ modelName, exploreId, exploreParams }: ExploreEmb
           console.error('Connection error', error)
         })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exploreParams])
 
   if (!modelName || !exploreId || !exploreParams) {
@@ -100,7 +96,7 @@ export const ExploreEmbed = ({ modelName, exploreId, exploreParams }: ExploreEmb
   )
 }
 
-const EmbedContainer = styled.div<{}>`
+const EmbedContainer = styled.div`
   backgroundcolor: #f7f7f7;
   width: 100%;
   height: 100%;
