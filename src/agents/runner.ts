@@ -559,22 +559,43 @@ export class Runner {
     try {
       // Prepare handoffs for the model
       const handoffTools =
-        agent.handoffs?.map((handoff) => ({
-          name: `handoff_to_${
-            typeof handoff.targetAgent === 'string' ? handoff.targetAgent : handoff.targetAgent.name
-          }`,
-          description: handoff.description || handoff.targetAgent?.handoffDescription || '',
-          parameters: {
-            type: 'OBJECT',
-            properties: {
-              reason: {
-                type: 'STRING',
-                description: 'Reason for handing off to this agent',
+        agent.handoffs?.map((handoff) => {
+          // Get the target agent
+          const targetAgent =
+            typeof handoff.targetAgent === 'string' ? handoff.targetAgent : handoff.targetAgent
+
+          // Extract information about the target agent's tools if available
+          let toolsInfo = ''
+          if (
+            typeof targetAgent !== 'string' &&
+            targetAgent.tools &&
+            targetAgent.tools.length > 0
+          ) {
+            toolsInfo =
+              '\n\nAvailable tools:\n' +
+              targetAgent.tools.map((tool) => `- ${tool.name}: ${tool.description}`).join('\n')
+          }
+
+          return {
+            name: `handoff_to_${
+              typeof handoff.targetAgent === 'string'
+                ? handoff.targetAgent
+                : handoff.targetAgent.name
+            }`,
+            description:
+              (handoff.description || handoff.targetAgent?.handoffDescription || '') + toolsInfo,
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                reason: {
+                  type: 'STRING',
+                  description: 'Reason for handing off to this agent',
+                },
               },
+              required: ['reason'],
             },
-            required: ['reason'],
-          },
-        })) || []
+          }
+        }) || []
 
       // Combine all tools
       const allTools = [...(agent.tools || []), ...handoffTools]
