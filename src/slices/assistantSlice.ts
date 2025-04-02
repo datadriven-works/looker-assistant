@@ -1,6 +1,17 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { v4 as uuidv4 } from 'uuid'
 import { Filters } from '@looker/extension-sdk'
+
+export interface ExploreParams {
+  fields?: string[]
+  filters?: Record<string, string>
+  pivots?: string[]
+  vis_config?: any
+  sorts?: string[]
+  limit?: string
+  filter_expression?: string
+}
+
 export interface Setting {
   name: string
   description: string

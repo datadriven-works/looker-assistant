@@ -17,17 +17,20 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@looker/embed-sdk": "1.8.6",
     "@looker/extension-sdk-react": "^25.4.0",
     "@mui/material": "^7.0.0",
     "@reduxjs/toolkit": "^2.6.1",
     "crypto-js": "^4.2.0",
     "highlight.js": "^11.11.1",
+    "lucide-react": "^0.487.0",
     "marked": "^15.0.7",
     "marked-highlight": "^2.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-redux": "^9.2.0",
     "redux-persist": "^6.0.0",
+    "styled-components": "^6.1.16",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

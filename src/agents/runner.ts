@@ -14,6 +14,9 @@ interface SingleStepResult {
   // The items that were generated during this step
   generatedItems: unknown[]
 
+  // Items that should be returned to the UI for display
+  returnItems: unknown[]
+
   // What to do next
   nextStep: NextStep
 }
@@ -195,6 +198,7 @@ export class Runner {
     }
 
     let generatedItems: unknown[] = []
+    let returnItems: unknown[] = [] // Track items to return to the UI
 
     const contextWrapper = { context }
 
@@ -232,7 +236,8 @@ export class Runner {
             generatedItems,
             hooks,
             contextWrapper,
-            shouldRunAgentStartHooks
+            shouldRunAgentStartHooks,
+            returnItems // Pass the returnItems array
           )
         } else {
           turnResult = await this.runSingleTurn(
@@ -241,13 +246,15 @@ export class Runner {
             generatedItems,
             hooks,
             contextWrapper,
-            shouldRunAgentStartHooks
+            shouldRunAgentStartHooks,
+            returnItems // Pass the returnItems array
           )
         }
 
         shouldRunAgentStartHooks = false
         originalInput = turnResult.originalInput
         generatedItems = turnResult.generatedItems
+        returnItems = turnResult.returnItems // Update returnItems from the turn result
 
         console.log('turnResult', turnResult)
 
@@ -276,8 +283,12 @@ export class Runner {
           return {
             finalOutput,
             handoffPerformed: false,
-            toolCalls: [], // In a real implementation, you'd track tool calls
+            toolCalls: generatedItems.filter(
+              (item) =>
+                typeof item === 'object' && item !== null && 'name' in item && 'parameters' in item
+            ) as ToolCall[], // Include all tool calls from generated items
             context: contextWrapper.context,
+            returnItems, // Include the accumulated returnItems
           }
         } else if (turnResult.nextStep.type === 'handoff') {
           currentAgent = turnResult.nextStep.newAgent
@@ -472,7 +483,8 @@ export class Runner {
     generatedItems: unknown[],
     hooks: RunHooks,
     contextWrapper: { context?: RunContext },
-    shouldRunAgentStartHooks: boolean
+    shouldRunAgentStartHooks: boolean,
+    returnItems: unknown[]
   ): Promise<SingleStepResult> {
     // Run agent start hooks if needed
     if (shouldRunAgentStartHooks && hooks.onAgentStart) {
@@ -547,22 +559,43 @@ export class Runner {
     try {
       // Prepare handoffs for the model
       const handoffTools =
-        agent.handoffs?.map((handoff) => ({
-          name: `handoff_to_${
-            typeof handoff.targetAgent === 'string' ? handoff.targetAgent : handoff.targetAgent.name
-          }`,
-          description: handoff.description || handoff.targetAgent?.handoffDescription || '',
-          parameters: {
-            type: 'OBJECT',
-            properties: {
-              reason: {
-                type: 'STRING',
-                description: 'Reason for handing off to this agent',
+        agent.handoffs?.map((handoff) => {
+          // Get the target agent
+          const targetAgent =
+            typeof handoff.targetAgent === 'string' ? handoff.targetAgent : handoff.targetAgent
+
+          // Extract information about the target agent's tools if available
+          let toolsInfo = ''
+          if (
+            typeof targetAgent !== 'string' &&
+            targetAgent.tools &&
+            targetAgent.tools.length > 0
+          ) {
+            toolsInfo =
+              '\n\nAvailable tools:\n' +
+              targetAgent.tools.map((tool) => `- ${tool.name}: ${tool.description}`).join('\n')
+          }
+
+          return {
+            name: `handoff_to_${
+              typeof handoff.targetAgent === 'string'
+                ? handoff.targetAgent
+                : handoff.targetAgent.name
+            }`,
+            description:
+              (handoff.description || handoff.targetAgent?.handoffDescription || '') + toolsInfo,
+            parameters: {
+              type: 'OBJECT',
+              properties: {
+                reason: {
+                  type: 'STRING',
+                  description: 'Reason for handing off to this agent',
+                },
               },
+              required: ['reason'],
             },
-            required: ['reason'],
-          },
-        })) || []
+          }
+        }) || []
 
       // Combine all tools
       const allTools = [...(agent.tools || []), ...handoffTools]
@@ -596,17 +629,31 @@ export class Runner {
       })
 
       // 4. Process the response to determine next steps
-      const processedResponse = await this.processModelResponse(modelResponse)
+      const processedResponse = await this.processModelResponse(modelResponse, agent)
 
       // 5. Handle tool calls, output generation, or handoffs
       if (processedResponse.handoffAgent) {
-        console.log('handoffAgent', processedResponse.handoffAgent)
         // If there's a handoff, create a handoff next step
-        const handoffAgent = this.getHandoffAgent(processedResponse.handoffAgent, agent)
+        const handoffAgent = this.getHandoffAgent(processedResponse.handoffAgent.agentName, agent)
+        returnItems.push({
+          role: 'model',
+          parts: [
+            {
+              functionCall: {
+                name: 'handoff',
+                args: {
+                  agentName: processedResponse.handoffAgent.agentName,
+                  reason: processedResponse.handoffAgent.reason,
+                },
+              },
+            },
+          ],
+        })
         return {
           originalInput,
           modelResponse: processedResponse,
           generatedItems,
+          returnItems,
           nextStep: {
             type: 'handoff',
             newAgent: handoffAgent,
@@ -614,6 +661,18 @@ export class Runner {
         }
       } else if (processedResponse.toolCalls && processedResponse.toolCalls.length > 0) {
         console.log('toolCalls', processedResponse.toolCalls)
+
+        // Double check that all tool calls are for tools that exist in this agent
+        for (const toolCall of processedResponse.toolCalls) {
+          const tool = agent.tools?.find((t) => t.name === toolCall.name)
+          if (!tool) {
+            // This shouldn't happen since processModelResponse should have filtered these out or created a handoff
+            throw new Error(
+              `Tool ${toolCall.name} not found in agent ${agent.name}. This should have been caught in processModelResponse.`
+            )
+          }
+        }
+
         // If there are tool calls, execute them and create a run again step
         const executedToolCalls = await this.executeToolCalls(
           processedResponse.toolCalls,
@@ -624,6 +683,13 @@ export class Runner {
 
         console.log('executedToolCalls', executedToolCalls)
 
+        // Add any tool calls marked with showInThread to returnItems
+        for (const toolCall of executedToolCalls) {
+          if (toolCall.showInThread) {
+            returnItems.push(toolCall)
+          }
+        }
+
         // Add the tool calls to generated items
         const newItems = [...generatedItems, ...executedToolCalls]
 
@@ -633,6 +699,7 @@ export class Runner {
           originalInput,
           modelResponse: processedResponse,
           generatedItems: newItems,
+          returnItems,
           nextStep: { type: 'run_again' },
         }
       } else {
@@ -641,6 +708,7 @@ export class Runner {
           originalInput,
           modelResponse: processedResponse,
           generatedItems,
+          returnItems,
           nextStep: {
             type: 'final_output',
             output: processedResponse.finalOutput,
@@ -659,12 +727,13 @@ export class Runner {
    * Process the raw model response into a structured format
    */
   private static async processModelResponse(
-    modelResponse: GeminiModelResponse[]
+    modelResponse: GeminiModelResponse[],
+    agent?: Agent
   ): Promise<AgentResult> {
     // Handle different response formats
     let finalOutput = ''
     let toolCalls: ToolCall[] = []
-    let handoffAgent: string | Agent | undefined
+    let handoffAgent: { agentName: string | Agent; reason: string } | undefined
 
     try {
       // Process any textual responses
@@ -689,7 +758,10 @@ export class Runner {
       if (handoffCall) {
         // Extract the agent name from the function call name (remove 'handoff_to_' prefix)
         const agentName = handoffCall.name.substring('handoff_to_'.length)
-        handoffAgent = agentName
+        handoffAgent = {
+          agentName: agentName,
+          reason: handoffCall.parameters.reason as string,
+        }
         console.log(
           `Handoff requested to agent: ${agentName}, reason: ${handoffCall.parameters.reason}`
         )
@@ -697,6 +769,51 @@ export class Runner {
 
       // Filter out handoff function calls from the toolCalls list
       toolCalls = toolCalls.filter((call) => !call.name.startsWith('handoff_to_'))
+
+      // If we have an agent and tool calls, check if the agent has all the required tools
+      if (agent && toolCalls.length > 0 && !handoffAgent) {
+        const missingTools: Array<{ name: string; parameters: Record<string, unknown> }> = []
+
+        toolCalls.forEach((toolCall) => {
+          const tool = agent.tools?.find((t) => t.name === toolCall.name)
+          if (!tool) {
+            missingTools.push(toolCall)
+          }
+        })
+
+        // If there are missing tools, try to find agents that can handle them
+        if (missingTools.length > 0) {
+          console.log(`Missing tools detected: ${missingTools.map((t) => t.name).join(', ')}`)
+          const handoffTargetAgent = this.findAgentForTool(missingTools[0].name, agent)
+
+          if (handoffTargetAgent) {
+            console.log(
+              `Found agent ${handoffTargetAgent.name} that can handle tool ${missingTools[0].name}. Setting up automatic handoff.`
+            )
+
+            // Create a handoff
+            handoffAgent = {
+              agentName: handoffTargetAgent,
+              reason: `I need to use the ${missingTools[0].name} tool, but I don't have access to it. Handing off to the ${handoffTargetAgent.name} agent which can handle this request.`,
+            }
+
+            // Remove the missing tool calls from the list so they don't cause errors later
+            toolCalls = toolCalls.filter(
+              (call) => !missingTools.some((mt) => mt.name === call.name)
+            )
+          } else {
+            // If no agent can handle the tool, log a warning
+            console.warn(
+              `No agent found that can handle tool ${missingTools[0].name}. Tool call will fail.`
+            )
+
+            // We'll still return the missing tools, but add a note in the finalOutput to help explain the problem
+            finalOutput = `${finalOutput ? finalOutput + '\n\n' : ''}Error: The required tool "${
+              missingTools[0].name
+            }" is not available and no agent was found that can handle it.`
+          }
+        }
+      }
 
       if (responseText && responseText.trim() !== '') {
         // Legacy format
@@ -717,6 +834,66 @@ export class Runner {
   }
 
   /**
+   * Find an agent that can handle a tool
+   */
+  private static findAgentForTool(toolName: string, currentAgent?: Agent): Agent | undefined {
+    if (currentAgent && currentAgent.handoffs) {
+      for (const handoff of currentAgent.handoffs) {
+        try {
+          // Try to get the actual agent object, whether it's a string reference or direct object
+          const targetAgent =
+            typeof handoff.targetAgent === 'string'
+              ? this.getHandoffAgent(handoff.targetAgent, currentAgent)
+              : handoff.targetAgent
+
+          // If the target agent has the tool we're looking for
+          if (
+            targetAgent &&
+            targetAgent.tools &&
+            targetAgent.tools.some((tool) => tool.name === toolName)
+          ) {
+            return targetAgent
+          }
+        } catch (error) {
+          // Skip this handoff if we can't resolve the agent
+          console.warn(`Could not resolve agent for handoff: ${error}`)
+          continue
+        }
+      }
+    }
+    return undefined
+  }
+
+  /**
+   * Get an agent for a handoff
+   */
+  private static getHandoffAgent(handoffTarget: string | Agent, currentAgent?: Agent): Agent {
+    if (typeof handoffTarget === 'string') {
+      // Try to find the handoff target in the current agent's handoffs
+      if (currentAgent && currentAgent.handoffs) {
+        const handoff = currentAgent.handoffs.find((h) => {
+          if (typeof h.targetAgent === 'string') {
+            return h.targetAgent === handoffTarget
+          } else {
+            return h.targetAgent.name === handoffTarget
+          }
+        })
+
+        if (handoff) {
+          return typeof handoff.targetAgent === 'string'
+            ? ({ name: handoff.targetAgent } as unknown as Agent) // This is a temporary placeholder since we don't have a real agent registry
+            : handoff.targetAgent
+        }
+      }
+
+      // If we get here, we couldn't find the agent
+      throw new Error(`Cannot find handoff agent named ${handoffTarget}`)
+    } else {
+      return handoffTarget
+    }
+  }
+
+  /**
    * Execute tool calls and return the results
    */
   private static async executeToolCalls(
@@ -724,7 +901,14 @@ export class Runner {
     agent: Agent,
     hooks: RunHooks,
     contextWrapper: { context?: RunContext }
-  ): Promise<Array<{ name: string; parameters: Record<string, unknown>; result: unknown }>> {
+  ): Promise<
+    Array<{
+      name: string
+      parameters: Record<string, unknown>
+      result: unknown
+      showInThread?: boolean
+    }>
+  > {
     const results = []
 
     for (const toolCall of toolCalls) {
@@ -761,6 +945,7 @@ export class Runner {
           results.push({
             ...toolCall,
             result,
+            showInThread: tool.showInThread,
           })
         } catch (error) {
           console.error(`Error executing tool ${toolCall.name}:`, error)
@@ -772,6 +957,7 @@ export class Runner {
               error: true,
               message: error instanceof Error ? error.message : String(error),
             },
+            showInThread: tool.showInThread,
           })
         }
       } else {
@@ -784,39 +970,11 @@ export class Runner {
             error: true,
             message: `Tool ${toolCall.name} not found`,
           },
+          showInThread: false,
         })
       }
     }
 
     return results
-  }
-
-  /**
-   * Get an agent for a handoff
-   */
-  private static getHandoffAgent(handoffTarget: string | Agent, currentAgent?: Agent): Agent {
-    if (typeof handoffTarget === 'string') {
-      // Try to find the handoff target in the current agent's handoffs
-      if (currentAgent && currentAgent.handoffs) {
-        const handoff = currentAgent.handoffs.find((h) => {
-          if (typeof h.targetAgent === 'string') {
-            return h.targetAgent === handoffTarget
-          } else {
-            return h.targetAgent.name === handoffTarget
-          }
-        })
-
-        if (handoff) {
-          return typeof handoff.targetAgent === 'string'
-            ? ({ name: handoff.targetAgent } as unknown as Agent) // This is a temporary placeholder since we don't have a real agent registry
-            : handoff.targetAgent
-        }
-      }
-
-      // If we get here, we couldn't find the agent
-      throw new Error(`Cannot find handoff agent named ${handoffTarget}`)
-    } else {
-      return handoffTarget
-    }
   }
 }

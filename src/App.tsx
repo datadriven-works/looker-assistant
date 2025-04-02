@@ -1,22 +1,19 @@
 import { Suspense } from 'react'
-import { ExtensionProvider40 } from '@looker/extension-sdk-react'
-import { persistor, store } from './store'
+import { ExtensionProvider } from '@looker/extension-sdk-react'
 import { Provider } from 'react-redux'
+import { store } from './store'
 
 import './styles.scss'
 import Assistant from './components/Assistant'
 import { LinearProgress } from '@mui/material'
-import { PersistGate } from 'redux-persist/integration/react'
 
 const App = () => {
   return (
     <Suspense fallback={<></>}>
       <Provider store={store}>
-        <PersistGate loading={<LinearProgress />} persistor={persistor}>
-          <ExtensionProvider40>
-            <Assistant />
-          </ExtensionProvider40>
-        </PersistGate>
+        <ExtensionProvider loadingComponent={<LinearProgress />} requiredLookerVersion=">=24.0">
+          <Assistant />
+        </ExtensionProvider>
       </Provider>
     </Suspense>
   )
