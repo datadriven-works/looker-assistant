@@ -26,11 +26,7 @@ const Thread = () => {
   const messages = thread?.messages
 
   return (
-    <div
-      ref={threadContainerRef}
-      className="relative overflow-y-auto"
-      style={{ maxHeight: 'calc(100vh - 200px)' }} // Adjust this value based on your layout
-    >
+    <div ref={threadContainerRef} className="relative overflow-y-auto h-full">
       {messages.map((message) => {
         if (message.type === 'functionCall') {
           return <FunctionCallMessage key={message.uuid} message={message} />

@@ -17,19 +17,21 @@ const FunctionCallResponseMessage = ({ message }: { message: FunctionResponse })
     }
 
     return (
-      <ExploreEmbed
-        modelName={model}
-        exploreId={view}
-        exploreParams={{
-          fields: response.fields,
-          filters: response.filters,
-          pivots: response.pivots,
-          vis_config: response.vis_config,
-          sorts: response.sorts,
-          limit: response.limit,
-          filter_expression: response.filter_expression,
-        }}
-      />
+      <div className="my-4">
+        <ExploreEmbed
+          modelName={model}
+          exploreId={view}
+          exploreParams={{
+            fields: response.fields,
+            filters: response.filters,
+            pivots: response.pivots,
+            vis_config: response.vis_config,
+            sorts: response.sorts,
+            limit: response.limit,
+            filter_expression: response.filter_expression,
+          }}
+        />
+      </div>
     )
   }
   return <></>
