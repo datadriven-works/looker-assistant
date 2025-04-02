@@ -13,7 +13,7 @@ const FunctionCallMessage = ({ message }: { message: FunctionCall }) => {
   return (
     <div className={`flex justify-start mb-4`}>
       <div className={`max-w-[70%]`}>
-        <div className={clsx('rounded-lg p-3 max-w-xl')}>
+        <div className={clsx('rounded-lg max-w-xl')}>
           <Chip label={functionNameWords} />
         </div>
       </div>
