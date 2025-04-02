@@ -1,7 +1,7 @@
 import Thread from '../Thread'
 import PromptInput from '../PromptInput'
 import { useDispatch, useSelector } from 'react-redux'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useContext, useEffect, useMemo } from 'react'
 import {
   addMessage,
   AssistantState,
@@ -18,6 +18,7 @@ import { generateContent, MessagePart } from '../../hooks/useGenerateContent'
 import { Runner } from '../../agents/runner'
 import { Agent, Handoff, ToolCall } from '../../agents/primitives'
 import { buildExploreAgent } from '../../agents/exploreAgent'
+import { ExtensionContext } from '@looker/extension-sdk-react'
 
 // Ensure our generateHistory function correctly maps to MessagePart objects
 const generateHistory = (messages: ChatMessage[]): MessagePart[] => {
@@ -67,6 +68,8 @@ const generateHistory = (messages: ChatMessage[]): MessagePart[] => {
 
 const ChatSurface = () => {
   const dispatch = useDispatch()
+
+  const { core40SDK: lookerSDK } = useContext(ExtensionContext)
 
   const { query, thread, user, semanticModels, dashboard } = useSelector(
     (state: RootState) => state.assistant as AssistantState
@@ -154,7 +157,7 @@ const ChatSurface = () => {
           targetAgent: userAgent,
         },
         {
-          targetAgent: buildExploreAgent(semanticModels),
+          targetAgent: buildExploreAgent(semanticModels, lookerSDK),
         },
       ]
 

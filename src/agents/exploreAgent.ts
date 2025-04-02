@@ -1,6 +1,7 @@
 import { generateContent, MessagePart } from '../hooks/useGenerateContent'
 import { SemanticModel } from '../slices/assistantSlice'
 import { Agent } from './primitives'
+import { Looker40SDK } from '@looker/sdk'
 
 // Helper function for formatting row data
 const formatRow = (field: any) => {
@@ -120,11 +121,13 @@ const getExploreData = async ({
   modelName,
   exploreId,
   semanticModels,
+  sdk,
 }: {
   userRequest: string
   modelName: string
   exploreId: string
   semanticModels: { [exploreKey: string]: SemanticModel }
+  sdk: Looker40SDK
 }) => {
   // Get the resolved explore key directly, same as in get_explore_query
   const { exploreKey, model, view } = sanitizeExploreDefinition({
@@ -150,14 +153,13 @@ const getExploreData = async ({
   try {
     console.log('Running inline query with definition:', exploreDefinition)
 
-    // This is where you would call the Looker API with the exploreDefinition
-    // Example:
-    // const rawData = await lookerClient.run_inline_query(exploreDefinition)
+    const rawData = await sdk.ok(
+      sdk.run_inline_query({ result_format: 'md', body: exploreDefinition })
+    )
 
-    // For now, return the explore definition since the API call implementation might be elsewhere
     return {
       queryDefinition: exploreDefinition,
-      // rawData: rawData  // Uncomment and implement when the API integration is ready
+      rawData: rawData,
     }
   } catch (error) {
     console.error('Error running Looker query:', error)
@@ -309,9 +311,12 @@ const generateExploreQuery = async ({
   return exploreDefinition
 }
 
-export const buildExploreAgent = (semanticModels: {
-  [exploreKey: string]: SemanticModel
-}): Agent => {
+export const buildExploreAgent = (
+  semanticModels: {
+    [exploreKey: string]: SemanticModel
+  },
+  sdk: Looker40SDK
+): Agent => {
   const injectedExploreAgentMessages: MessagePart[] = []
 
   if (semanticModels) {
@@ -399,6 +404,7 @@ export const buildExploreAgent = (semanticModels: {
             modelName: model_name,
             exploreId: explore_id,
             semanticModels,
+            sdk,
           })
         },
       },
