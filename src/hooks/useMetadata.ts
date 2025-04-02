@@ -1,6 +1,6 @@
 import { useEffect, useContext, useCallback, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { ExtensionContext40, getCore40SDK } from '@looker/extension-sdk-react'
+import { ExtensionContext } from '@looker/extension-sdk-react'
 import {
   setIsMetadataLoaded,
   setUser,
@@ -16,8 +16,7 @@ import { RootState } from '../store'
 
 export const useMetadata = () => {
   const dispatch = useDispatch()
-  const sdk = getCore40SDK()
-  const { tileHostData } = useContext(ExtensionContext40)
+  const { tileHostData, core40SDK: sdk } = useContext(ExtensionContext)
   const [dashboardDataFetched, setDashboardDataFetched] = useState(false)
 
   const { assistantConfig } = useSelector((state: RootState) => state.assistant)
