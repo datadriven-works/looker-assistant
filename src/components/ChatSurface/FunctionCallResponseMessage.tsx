@@ -1,6 +1,8 @@
 import { FunctionResponse } from '../../slices/assistantSlice'
 import { ExploreEmbed } from '../ExploreEmbed'
-const FunctionCallResponseMessage = ({ message }: { message: FunctionResponse }) => {
+import { memo } from 'react'
+
+const FunctionCallResponseMessage = memo(({ message }: { message: FunctionResponse }) => {
   console.log('FunctionCallResponseMessage', message)
   if (message.name === 'get_explore_query') {
     const response = message.response
@@ -35,5 +37,8 @@ const FunctionCallResponseMessage = ({ message }: { message: FunctionResponse })
     )
   }
   return <></>
-}
+})
+
+FunctionCallResponseMessage.displayName = 'FunctionCallResponseMessage'
+
 export default FunctionCallResponseMessage

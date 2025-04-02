@@ -1,4 +1,4 @@
-import React, { useContext, useRef, useEffect } from 'react'
+import React, { useContext, useRef, useEffect, memo } from 'react'
 import styled from 'styled-components'
 import { LookerEmbedSDK } from '@looker/embed-sdk'
 import { ExtensionContext } from '@looker/extension-sdk-react'
@@ -11,7 +11,7 @@ export interface ExploreEmbedProps {
   exploreParams: ExploreParams
 }
 
-export const ExploreEmbed = ({ modelName, exploreId, exploreParams }: ExploreEmbedProps) => {
+export const ExploreEmbed = memo(({ modelName, exploreId, exploreParams }: ExploreEmbedProps) => {
   const ref = useRef<HTMLDivElement>(null)
 
   const { extensionSDK } = useContext(ExtensionContext)
@@ -94,7 +94,9 @@ export const ExploreEmbed = ({ modelName, exploreId, exploreParams }: ExploreEmb
       <EmbedContainer id="embedcontainer" ref={ref} />
     </div>
   )
-}
+})
+
+ExploreEmbed.displayName = 'ExploreEmbed'
 
 const EmbedContainer = styled.div`
   backgroundcolor: #f7f7f7;
