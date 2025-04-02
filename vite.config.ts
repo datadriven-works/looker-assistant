@@ -8,6 +8,7 @@ import type { OutputChunk } from 'rollup'
 import autoprefixer from 'autoprefixer'
 import tailwindcss from 'tailwindcss'
 import { execSync } from 'child_process'
+import type { ServerOptions } from 'vite'
 
 // Create .env file if it does not exist
 if (!fs.existsSync('.env')) {
@@ -280,6 +281,19 @@ const yamlPlugin: Plugin = {
 export default defineConfig(({ mode }) => {
   const isDevelopment = mode === 'development'
 
+  // Load SSL certificates if they exist
+  const certPath = path.resolve(__dirname, 'certs/cert.pem')
+  const keyPath = path.resolve(__dirname, 'certs/key.pem')
+
+  let httpsOptions: ServerOptions['https'] = undefined
+
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    httpsOptions = {
+      cert: fs.readFileSync(certPath),
+      key: fs.readFileSync(keyPath),
+    }
+  }
+
   return {
     plugins: [
       react(),
@@ -315,6 +329,7 @@ export default defineConfig(({ mode }) => {
       host: true, // Listen on all network interfaces
       cors: true,
       hmr: true, // Ensure HMR is enabled for regular development
+      https: httpsOptions,
     },
     build: {
       // Don't extract CSS into separate files
