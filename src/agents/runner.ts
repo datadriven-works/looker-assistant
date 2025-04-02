@@ -612,9 +612,22 @@ export class Runner {
 
       // 5. Handle tool calls, output generation, or handoffs
       if (processedResponse.handoffAgent) {
-        console.log('handoffAgent', processedResponse.handoffAgent)
         // If there's a handoff, create a handoff next step
-        const handoffAgent = this.getHandoffAgent(processedResponse.handoffAgent, agent)
+        const handoffAgent = this.getHandoffAgent(processedResponse.handoffAgent.agentName, agent)
+        returnItems.push({
+          role: 'model',
+          parts: [
+            {
+              functionCall: {
+                name: 'handoff',
+                args: {
+                  agentName: processedResponse.handoffAgent.agentName,
+                  reason: processedResponse.handoffAgent.reason,
+                },
+              },
+            },
+          ],
+        })
         return {
           originalInput,
           modelResponse: processedResponse,
@@ -686,7 +699,7 @@ export class Runner {
     // Handle different response formats
     let finalOutput = ''
     let toolCalls: ToolCall[] = []
-    let handoffAgent: string | Agent | undefined
+    let handoffAgent: { agentName: string | Agent; reason: string } | undefined
 
     try {
       // Process any textual responses
@@ -711,7 +724,10 @@ export class Runner {
       if (handoffCall) {
         // Extract the agent name from the function call name (remove 'handoff_to_' prefix)
         const agentName = handoffCall.name.substring('handoff_to_'.length)
-        handoffAgent = agentName
+        handoffAgent = {
+          agentName: agentName,
+          reason: handoffCall.parameters.reason as string,
+        }
         console.log(
           `Handoff requested to agent: ${agentName}, reason: ${handoffCall.parameters.reason}`
         )

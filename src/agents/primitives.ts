@@ -168,7 +168,7 @@ export interface AgentResult {
   handoffPerformed: boolean
 
   // If handoff was performed, which agent was it handed off to
-  handoffAgent?: string | Agent
+  handoffAgent?: { agentName: string | Agent; reason: string }
 
   // The tool calls that were made during the run
   toolCalls?: ToolCall[]

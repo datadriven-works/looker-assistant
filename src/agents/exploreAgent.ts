@@ -14,6 +14,19 @@ const looker_filter_doc = 'Looker filter documentation placeholder'
 const looker_visualization_doc = 'Looker visualization documentation placeholder'
 const looker_query_body = 'Looker query body documentation placeholder'
 
+/**
+ * Helper function to format explore data with dimensions and measures as a markdown table
+ */
+const formatExploreData = (dimensions: any[], measures: any[]): string => {
+  return `
+    Here are the dimensions and measures that are defined in this data set:
+     | Field Id | Field Type | LookML Type | Label | Description | Tags |
+     |------------|------------|-------------|-------|-------------|------|
+     ${dimensions.map(formatRow).join('\n')}
+     ${measures.map(formatRow).join('\n')}
+     `
+}
+
 const findBestExplore = async (
   userRequest: string,
   semanticModels: {
@@ -30,16 +43,8 @@ const findBestExplore = async (
       const dimensions = oneExplore.dimensions
       const measures = oneExplore.measures
 
-      const backgroundInformation = `
-    Here are the dimensions and measures that are defined in this data set:
-     | Field Id | Field Type | LookML Type | Label | Description | Tags |
-     |------------|------------|-------------|-------|-------------|------|
-     ${dimensions.map(formatRow).join('\n')}
-     ${measures.map(formatRow).join('\n')}
-     `
-
       exploreListMarkdown += `# Explore: ${exploreKey}\n\n`
-      exploreListMarkdown += backgroundInformation
+      exploreListMarkdown += formatExploreData(dimensions, measures)
     })
     .join('\n')
 
@@ -76,6 +81,90 @@ const findBestExplore = async (
   return response[0]['object']
 }
 
+const sanitizeExploreDefinition = ({
+  modelName,
+  exploreId,
+  semanticModels,
+}: {
+  modelName: string
+  exploreId: string
+  semanticModels: { [exploreKey: string]: SemanticModel }
+}) => {
+  let model = modelName
+  let view = exploreId
+
+  // the model might contain the full explore key
+  if (model.split(':').length > 1) {
+    model = model.split(':')[0]
+    view = model.split(':')[1]
+  } else if (view.split(':').length > 1) {
+    model = view.split(':')[0]
+    view = view.split(':')[1]
+  }
+
+  const exploreKey = `${model}:${view}`
+
+  if (!semanticModels[exploreKey]) {
+    throw new Error(`Explore ${exploreKey} not found`)
+  }
+
+  return {
+    exploreKey: exploreKey,
+    model: model,
+    view: view,
+  }
+}
+
+const getExploreData = async ({
+  userRequest,
+  modelName,
+  exploreId,
+  semanticModels,
+}: {
+  userRequest: string
+  modelName: string
+  exploreId: string
+  semanticModels: { [exploreKey: string]: SemanticModel }
+}) => {
+  // Get the resolved explore key directly, same as in get_explore_query
+  const { exploreKey, model, view } = sanitizeExploreDefinition({
+    modelName,
+    exploreId,
+    semanticModels,
+  })
+  const dimensions = semanticModels[exploreKey]?.dimensions || []
+  const measures = semanticModels[exploreKey]?.measures || []
+
+  console.log('Using explore key for data retrieval:', exploreKey)
+
+  // First generate the explore query
+  const exploreDefinition = await generateExploreQuery({
+    userRequest,
+    modelName: model,
+    exploreId: view,
+    dimensions,
+    measures,
+  })
+
+  // Now use the explore definition to call the Looker API and get the raw data
+  try {
+    console.log('Running inline query with definition:', exploreDefinition)
+
+    // This is where you would call the Looker API with the exploreDefinition
+    // Example:
+    // const rawData = await lookerClient.run_inline_query(exploreDefinition)
+
+    // For now, return the explore definition since the API call implementation might be elsewhere
+    return {
+      queryDefinition: exploreDefinition,
+      // rawData: rawData  // Uncomment and implement when the API integration is ready
+    }
+  } catch (error) {
+    console.error('Error running Looker query:', error)
+    throw error
+  }
+}
+
 const generateExploreQuery = async ({
   userRequest,
   modelName,
@@ -105,13 +194,7 @@ const generateExploreQuery = async ({
     You ABSOLUTELY MUST use the filters and filter_expression fields to filter the data. Almost every question will require a filter.
     `
 
-  const backgroundInformation = `
-    Here are the dimensions and measures that are defined in this data set:
-     | Field Id | Field Type | LookML Type | Label | Description | Tags |
-     |------------|------------|-------------|-------|-------------|------|
-     ${dimensions.map(formatRow).join('\n')}
-     ${measures.map(formatRow).join('\n')}
-    `
+  const backgroundInformation = formatExploreData(dimensions, measures)
 
   const filterDocumentation = `
      ${looker_filter_doc}
@@ -284,6 +367,43 @@ export const buildExploreAgent = (semanticModels: {
         },
       },
       {
+        name: 'get_explore_data',
+        description:
+          'Get the data from the explore. This will return the raw data from the explore.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            user_request: {
+              type: 'STRING',
+              description: 'The user request to get the explore data for',
+            },
+            model_name: {
+              type: 'STRING',
+              description: 'The name of the model to use, e.g. "sales_orders"',
+            },
+            explore_id: {
+              type: 'STRING',
+              description: 'The id of the explore to use, e.g. "orders"',
+            },
+          },
+          required: ['user_request', 'model_name', 'explore_id'],
+        },
+        showInThread: true,
+        execute: async (params: any) => {
+          console.log('get_explore_data', params)
+          const user_request = params.user_request
+          const model_name = params.model_name
+          const explore_id = params.explore_id
+
+          return await getExploreData({
+            userRequest: user_request,
+            modelName: model_name,
+            exploreId: explore_id,
+            semanticModels,
+          })
+        },
+      },
+      {
         name: 'get_explore_query',
         description:
           'Generate the request body to a Looker explore that answers the user question. The request body will be compatible with the Looker API endpoints for run_inline_query. It will use the dimensions/measures defined in the semantic model to create the explore. This will also trigger the embedding of the explore in the UI for the user to view. When you use this function, you do not need to follow up by showing the user the request body. You can summarize what we have done so far.',
@@ -312,28 +432,23 @@ export const buildExploreAgent = (semanticModels: {
           const model_name = params.model_name
           const explore_id = params.explore_id
 
-          // sometimes gemini gets confused and puts the explore key in the model name or explore id (or both)
-          let explore_key = `${model_name}:${explore_id}`
-          if (semanticModels[explore_key]) {
-            // do nothing
-          } else if (semanticModels[model_name]) {
-            explore_key = model_name
-          } else if (semanticModels[explore_id]) {
-            explore_key = explore_id
-          }
+          // Get the resolved explore key
+          const { exploreKey, model, view } = sanitizeExploreDefinition({
+            modelName: model_name,
+            exploreId: explore_id,
+            semanticModels,
+          })
+          const dimensions = semanticModels[exploreKey]?.dimensions || []
+          const measures = semanticModels[exploreKey]?.measures || []
 
-          const dimensions = semanticModels[explore_key]?.dimensions || []
-          const measures = semanticModels[explore_key]?.measures || []
-
-          console.log('dimensions', dimensions)
-          console.log('measures', measures)
+          console.log('Using explore key:', exploreKey)
 
           return await generateExploreQuery({
             userRequest: user_request,
-            modelName: model_name,
-            exploreId: explore_id,
-            dimensions: dimensions,
-            measures: measures,
+            modelName: model,
+            exploreId: view,
+            dimensions,
+            measures,
           })
         },
       },
