@@ -5,10 +5,21 @@ const FunctionCallResponseMessage = ({ message }: { message: FunctionResponse })
   if (message.name === 'get_explore_query') {
     const response = message.response
     console.log('FunctionCallResponseMessage - Response', response)
+
+    let view = response.view
+    if (view.includes(':')) {
+      view = view.split(':')[1]
+    }
+
+    let model = response.model
+    if (model.includes(':')) {
+      model = model.split(':')[0]
+    }
+
     return (
       <ExploreEmbed
-        modelName={response.model}
-        exploreId={response.view}
+        modelName={model}
+        exploreId={view}
         exploreParams={{
           fields: response.fields,
           filters: response.filters,
