@@ -116,11 +116,16 @@ const lookerBundlePlugin: Plugin = {
     server.httpServer?.once('listening', () => {
       console.log('Building production bundle for Looker extension...')
       try {
+        console.log('Building initial production bundle...')
         execSync('yarn build --mode production', { stdio: 'inherit' })
-        console.log('Bundle successfully built - available at http://localhost:8080/bundle.js')
-        console.log('To see changes, manually refresh your Looker extension after editing files.')
+        console.log('Bundle successfully built - available at https://localhost:8080/bundle.js')
+        console.log('Auto-reload is enabled for local development')
       } catch (err) {
-        console.error('Failed to build bundle:', err)
+        console.error('Failed to build initial bundle:', err)
+        console.log('Please try to build manually with: yarn build --mode production')
+        console.log(
+          'Development server will continue running, but bundle.js may not be available initially'
+        )
       }
     })
 
@@ -141,7 +146,7 @@ const lookerBundlePlugin: Plugin = {
 
         // Get the host from request headers
         const host = req.headers.host || 'localhost:8080'
-        const protocol = req.headers.referer?.startsWith('https') ? 'https' : 'http'
+        const protocol = 'https' // Always use HTTPS since we enabled it in server config
         const fullHostUrl = `${protocol}://${host}`
 
         try {
@@ -228,7 +233,7 @@ const lookerBundlePlugin: Plugin = {
       try {
         execSync('yarn build --mode production', { stdio: 'inherit' })
         console.log('Bundle successfully rebuilt.')
-        console.log('Refresh your Looker extension to see the changes.')
+        console.log('Auto-reload will refresh your Looker extension to show changes.')
       } catch (err) {
         console.error('Failed to rebuild bundle:', err)
       } finally {
