@@ -9,12 +9,14 @@ import {
   setIsQuerying,
   setQuery,
   TextMessage,
+  FunctionCall,
+  FunctionResponse,
 } from '../../slices/assistantSlice'
 import { RootState } from '../../store'
 import { v4 as uuidv4 } from 'uuid'
 import { generateContent, MessagePart } from '../../hooks/useGenerateContent'
 import { Runner } from '../../agents/runner'
-import { Agent, Handoff } from '../../agents/primitives'
+import { Agent, Handoff, ToolCall } from '../../agents/primitives'
 
 // Ensure our generateHistory function correctly maps to MessagePart objects
 const generateHistory = (messages: ChatMessage[]): MessagePart[] => {
@@ -234,6 +236,7 @@ const ChatSurface = () => {
               },
               required: ['timezone'],
             },
+            showInThread: true,
             execute: async (params) => {
               const now = new Date()
               // Use the timezone parameter if provided
@@ -290,6 +293,38 @@ const ChatSurface = () => {
       })
 
       console.log('Agent response:', result)
+
+      // Process any return items that should be shown in the thread
+      if (result.returnItems && result.returnItems.length > 0) {
+        for (const item of result.returnItems) {
+          // Check if it's a tool call
+          if (typeof item === 'object' && item !== null && 'name' in item && 'parameters' in item) {
+            const toolCall = item as ToolCall
+
+            // Add the function call to the thread
+            const functionCallMessage: FunctionCall = {
+              uuid: uuidv4(),
+              name: toolCall.name,
+              args: toolCall.parameters,
+              createdAt: Date.now(),
+              type: 'functionCall',
+            }
+            dispatch(addMessage(functionCallMessage))
+
+            // Also add the function response to the thread
+            const functionResponseMessage: FunctionResponse = {
+              uuid: uuidv4(),
+              callUuid: functionCallMessage.uuid,
+              name: toolCall.name,
+              response: toolCall.result,
+              createdAt: Date.now(),
+              type: 'functionResponse',
+            }
+            dispatch(addMessage(functionResponseMessage))
+          }
+        }
+      }
+
       const responseText = result.finalOutput
 
       const responseMessage: TextMessage = {

@@ -25,6 +25,7 @@ export interface Tool {
   description: string
   parameters: ParameterDefinition
   execute: (params?: Record<string, unknown>) => Promise<any>
+  showInThread?: boolean
 }
 
 /**
@@ -153,6 +154,7 @@ export interface ToolCall {
   name: string
   parameters: Record<string, unknown>
   result: unknown
+  showInThread?: boolean
 }
 
 /**
@@ -173,4 +175,7 @@ export interface AgentResult {
 
   // Updated context after the run
   context?: RunContext
+
+  // Items that should be returned to the UI for display
+  returnItems?: unknown[]
 }

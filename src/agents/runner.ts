@@ -14,6 +14,9 @@ interface SingleStepResult {
   // The items that were generated during this step
   generatedItems: unknown[]
 
+  // Items that should be returned to the UI for display
+  returnItems: unknown[]
+
   // What to do next
   nextStep: NextStep
 }
@@ -195,6 +198,7 @@ export class Runner {
     }
 
     let generatedItems: unknown[] = []
+    let returnItems: unknown[] = [] // Track items to return to the UI
 
     const contextWrapper = { context }
 
@@ -232,7 +236,8 @@ export class Runner {
             generatedItems,
             hooks,
             contextWrapper,
-            shouldRunAgentStartHooks
+            shouldRunAgentStartHooks,
+            returnItems // Pass the returnItems array
           )
         } else {
           turnResult = await this.runSingleTurn(
@@ -241,13 +246,15 @@ export class Runner {
             generatedItems,
             hooks,
             contextWrapper,
-            shouldRunAgentStartHooks
+            shouldRunAgentStartHooks,
+            returnItems // Pass the returnItems array
           )
         }
 
         shouldRunAgentStartHooks = false
         originalInput = turnResult.originalInput
         generatedItems = turnResult.generatedItems
+        returnItems = turnResult.returnItems // Update returnItems from the turn result
 
         console.log('turnResult', turnResult)
 
@@ -276,8 +283,12 @@ export class Runner {
           return {
             finalOutput,
             handoffPerformed: false,
-            toolCalls: [], // In a real implementation, you'd track tool calls
+            toolCalls: generatedItems.filter(
+              (item) =>
+                typeof item === 'object' && item !== null && 'name' in item && 'parameters' in item
+            ) as ToolCall[], // Include all tool calls from generated items
             context: contextWrapper.context,
+            returnItems, // Include the accumulated returnItems
           }
         } else if (turnResult.nextStep.type === 'handoff') {
           currentAgent = turnResult.nextStep.newAgent
@@ -472,7 +483,8 @@ export class Runner {
     generatedItems: unknown[],
     hooks: RunHooks,
     contextWrapper: { context?: RunContext },
-    shouldRunAgentStartHooks: boolean
+    shouldRunAgentStartHooks: boolean,
+    returnItems: unknown[]
   ): Promise<SingleStepResult> {
     // Run agent start hooks if needed
     if (shouldRunAgentStartHooks && hooks.onAgentStart) {
@@ -607,6 +619,7 @@ export class Runner {
           originalInput,
           modelResponse: processedResponse,
           generatedItems,
+          returnItems,
           nextStep: {
             type: 'handoff',
             newAgent: handoffAgent,
@@ -624,6 +637,13 @@ export class Runner {
 
         console.log('executedToolCalls', executedToolCalls)
 
+        // Add any tool calls marked with showInThread to returnItems
+        for (const toolCall of executedToolCalls) {
+          if (toolCall.showInThread) {
+            returnItems.push(toolCall)
+          }
+        }
+
         // Add the tool calls to generated items
         const newItems = [...generatedItems, ...executedToolCalls]
 
@@ -633,6 +653,7 @@ export class Runner {
           originalInput,
           modelResponse: processedResponse,
           generatedItems: newItems,
+          returnItems,
           nextStep: { type: 'run_again' },
         }
       } else {
@@ -641,6 +662,7 @@ export class Runner {
           originalInput,
           modelResponse: processedResponse,
           generatedItems,
+          returnItems,
           nextStep: {
             type: 'final_output',
             output: processedResponse.finalOutput,
@@ -724,7 +746,14 @@ export class Runner {
     agent: Agent,
     hooks: RunHooks,
     contextWrapper: { context?: RunContext }
-  ): Promise<Array<{ name: string; parameters: Record<string, unknown>; result: unknown }>> {
+  ): Promise<
+    Array<{
+      name: string
+      parameters: Record<string, unknown>
+      result: unknown
+      showInThread?: boolean
+    }>
+  > {
     const results = []
 
     for (const toolCall of toolCalls) {
@@ -761,6 +790,7 @@ export class Runner {
           results.push({
             ...toolCall,
             result,
+            showInThread: tool.showInThread,
           })
         } catch (error) {
           console.error(`Error executing tool ${toolCall.name}:`, error)
@@ -772,6 +802,7 @@ export class Runner {
               error: true,
               message: error instanceof Error ? error.message : String(error),
             },
+            showInThread: tool.showInThread,
           })
         }
       } else {
@@ -784,6 +815,7 @@ export class Runner {
             error: true,
             message: `Tool ${toolCall.name} not found`,
           },
+          showInThread: false,
         })
       }
     }
