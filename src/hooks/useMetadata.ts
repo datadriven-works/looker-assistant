@@ -92,82 +92,106 @@ export const useMetadata = () => {
 
   const getDashboard = useCallback(async () => {
     if (!tileHostData.dashboardId || !tileHostData.elementId) {
-      return
+      console.log('No dashboard ID or element ID available');
+      return;
     }
 
-    const dashboardMetadata = {
-      filters: tileHostData.dashboardFilters || {},
-      id: tileHostData.dashboardId,
-      elementId: tileHostData.elementId,
-      queries: await sdk
-        .ok(
-          sdk.dashboard_dashboard_elements(
-            tileHostData.dashboardId as string,
-            'query,result_maker,note_text,title,query_id'
+    try {
+      console.log('Fetching dashboard metadata...');
+      const dashboardMetadata = {
+        filters: tileHostData.dashboardFilters || {},
+        id: tileHostData.dashboardId,
+        elementId: tileHostData.elementId,
+        queries: await sdk
+          .ok(
+            sdk.dashboard_dashboard_elements(
+              tileHostData.dashboardId as string,
+              'query,result_maker,note_text,title,query_id'
+            )
           )
-        )
-        .then((elements) =>
-          elements
-            .filter((element) => element.query || element.result_maker)
-            .map((element) => {
-              const { query, note_text, title } = element
-              return {
-                queryBody: query || element.result_maker?.query,
-                note_text,
-                title,
-              }
-            })
-        ),
-      description: await sdk
-        .ok(sdk.dashboard(tileHostData.dashboardId as string, 'description'))
-        .then((res) => res.description || ''),
-      data: [],
+          .then((elements) =>
+            elements
+              .filter((element) => element.query || element.result_maker)
+              .map((element) => {
+                const { query, note_text, title } = element
+                return {
+                  queryBody: query || element.result_maker?.query,
+                  note_text,
+                  title,
+                }
+              })
+          ),
+        description: await sdk
+          .ok(sdk.dashboard(tileHostData.dashboardId as string, 'description'))
+          .then((res) => res.description || ''),
+        data: [],
+      }
+
+      console.log('Dashboard metadata loaded:', {
+        id: dashboardMetadata.id,
+        queriesCount: dashboardMetadata.queries.length,
+        description: dashboardMetadata.description
+      });
+
+      dispatch(setDashboard(dashboardMetadata))
+
+      if (dashboardMetadata && dashboardMetadata.queries) {
+        console.log('Fetching dashboard query data...');
+        const queryPromises = dashboardMetadata.queries.map(async (query) => {
+          if (!query.queryBody) {
+            console.log('No query body available for query:', query);
+            return null;
+          }
+
+          let queryData;
+          try {
+            queryData = await sdk.ok(
+              sdk.run_inline_query({
+                body: query.queryBody,
+                result_format: 'csv',
+                cache: true,
+                apply_formatting: true,
+                limit: 200,
+              })
+            );
+            console.log('Query data loaded successfully:', {
+              queryTitle: query.title,
+              dataLength: queryData?.length
+            });
+          } catch (err) {
+            console.error('Error running inline query:', err);
+            queryData = null;
+          }
+
+          return {
+            queryDescription: dashboardMetadata.description,
+            queryTitle: query.title || 'Untitled Query',
+            queryNote: query.note_text || 'No query note provided.',
+            queryFields: query.queryBody?.fields,
+            queryData,
+          }
+        });
+
+        const querySummaries = await Promise.all(queryPromises);
+        const validSummaries = querySummaries.filter(summary => summary !== null);
+        
+        console.log('Dashboard data loaded:', {
+          totalQueries: querySummaries.length,
+          validQueries: validSummaries.length
+        });
+
+        if (validSummaries.length > 0) {
+          dispatch(setDashboardData(validSummaries));
+        } else {
+          console.log('No valid query data available for dashboard');
+        }
+      } else {
+        console.log('No queries available in dashboard metadata');
+      }
+    } catch (error) {
+      console.error('Error loading dashboard:', error);
     }
-
-    console.log('dashboardMetadata', dashboardMetadata)
-    dispatch(setDashboard(dashboardMetadata))
-
-    if (dashboardMetadata && dashboardMetadata.queries) {
-      const queryPromises = dashboardMetadata.queries.map(async (query) => {
-        if (!query.queryBody) {
-          return
-        }
-
-        let queryData
-        try {
-          queryData = await sdk.ok(
-            sdk.run_inline_query({
-              body: query.queryBody,
-              result_format: 'csv',
-              cache: true,
-              apply_formatting: true,
-              limit: 200,
-            })
-          )
-          console.log('queryData: ', queryData)
-          console.log('query: ', query)
-          console.log('dashboardMetadata.description: ', dashboardMetadata.description)
-        } catch (err) {
-          // Handle the failure of this specific query
-          console.error('Error running inline query: ', err)
-          // Decide how you want to handle the data if the query fails:
-          // e.g., set to null, empty string, or an empty array
-          queryData = null
-        }
-
-        return {
-          queryDescription: dashboardMetadata.description,
-          queryTitle: query.title,
-          queryNote: query.note_text || 'No query note provided.',
-          queryFields: query.queryBody?.fields,
-          queryData,
-        }
-      })
-
-      const querySummaries = await Promise.all(queryPromises)
-      dispatch(setDashboardData(querySummaries))
-    }
-  }, [tileHostData])
+  }, [tileHostData, dispatch]);
 
   const getExplores = async () => {
     try {
