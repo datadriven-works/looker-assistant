@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { generateContent, MessagePart } from '../../hooks/useGenerateContent'
 import { Runner } from '../../agents/runner'
 import { Agent, Handoff, ToolCall } from '../../agents/primitives'
+import { buildExploreAgent } from '../../agents/exploreAgent'
 
 // Ensure our generateHistory function correctly maps to MessagePart objects
 const generateHistory = (messages: ChatMessage[]): MessagePart[] => {
@@ -98,23 +99,6 @@ const ChatSurface = () => {
       // Process the query with our agent system
       console.log('Processing with agent system...')
 
-      const injectedExploreAgentMessages: MessagePart[] = []
-
-      Object.keys(semanticModels).forEach((exploreKey) => {
-        const explore = semanticModels[exploreKey]
-        injectedExploreAgentMessages.push({
-          role: 'user',
-          parts: [
-            `The explore ${exploreKey} has the following dimensions: ${explore.dimensions
-              .map((dimension) => dimension.name)
-              .join(', ')}`,
-            `The explore ${exploreKey} has the following measures: ${explore.measures
-              .map((measure) => measure.name)
-              .join(', ')}`,
-          ],
-        })
-      })
-
       const injectedDashboardAgentMessages: MessagePart[] = []
       if (isMountedOnDashboard) {
         injectedDashboardAgentMessages.push(
@@ -148,21 +132,6 @@ const ChatSurface = () => {
           'The assistant is mounted on a dashboard. If the user asks about the dashboard, handoff to this agent.',
       }
 
-      const exploreAgent: Agent = {
-        name: 'ExploreAgent',
-        description:
-          'You know everything about the Looker explores that the user is able to see. Including the defined dimensions and measures.',
-        getSystemPrompt: async () => {
-          return 'You are a helpful assistant that can answer questions about the Looker explores that the user is able to see. Including the defined dimensions and measures.'
-        },
-        modelSettings: {
-          model: 'gemini-2.0-flash',
-        },
-        handoffDescription:
-          'Always handoff to the explore agent if there is a question looker explore related. Questions like "What dimensions are there in the explore?", "What measures are there in the explore?", "What is the total revenue for the explore?", etc. There might also be questions like "What explore should I use to answer this question?"',
-        injectMessages: injectedExploreAgentMessages,
-      }
-
       const userAgent: Agent = {
         name: 'UserAssistant',
         description: 'A helpful assistant that answers questions directly.',
@@ -185,7 +154,7 @@ const ChatSurface = () => {
           targetAgent: userAgent,
         },
         {
-          targetAgent: exploreAgent,
+          targetAgent: buildExploreAgent(semanticModels),
         },
       ]
 
