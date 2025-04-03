@@ -79,6 +79,29 @@ const ChatSurface = () => {
     return dashboard?.id && dashboard?.elementId
   }, [dashboard])
 
+  // Create dashboard agent messages whenever dashboard data changes
+  const injectedDashboardAgentMessages = useMemo((): MessagePart[] => {
+    if (!isMountedOnDashboard || !dashboard?.data) {
+      return []
+    }
+
+    return [
+      {
+        role: 'user',
+        parts: [
+          'Here are the details about the dashboard you are embedded in: ' +
+            dashboard.data.map((query) => query.queryTitle).join(', ') +
+            '\n \n Here is the description of the dashboard: ' +
+            dashboard.description,
+        ],
+      },
+      {
+        role: 'user',
+        parts: ['Here is the data for the dashboard: ' + JSON.stringify(dashboard.data)],
+      },
+    ]
+  }, [isMountedOnDashboard, dashboard])
+
   const submitMessage = useCallback(async () => {
     if (query === '') {
       return
@@ -101,25 +124,6 @@ const ChatSurface = () => {
     try {
       // Process the query with our agent system
       console.log('Processing with agent system...')
-
-      const injectedDashboardAgentMessages: MessagePart[] = []
-      if (isMountedOnDashboard) {
-        injectedDashboardAgentMessages.push(
-          {
-            role: 'user',
-            parts: [
-              'Here are the details about the dashboard you are embedded in: ' +
-                dashboard?.data.map((query) => query.queryTitle).join(', ') +
-                '\n \n Here is the description of the dashboard: ' +
-                dashboard?.description,
-            ],
-          },
-          {
-            role: 'user',
-            parts: ['Here is the data for the dashboard: ' + JSON.stringify(dashboard?.data)],
-          }
-        )
-      }
 
       const dashboardAgent: Agent = {
         name: 'DashboardAgent',

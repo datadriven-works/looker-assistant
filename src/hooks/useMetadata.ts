@@ -1,4 +1,4 @@
-import { useEffect, useContext, useCallback, useState } from 'react'
+import { useEffect, useContext, useCallback, useState, useMemo } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { ExtensionContext } from '@looker/extension-sdk-react'
 import {
@@ -18,8 +18,12 @@ export const useMetadata = () => {
   const dispatch = useDispatch()
   const { tileHostData, core40SDK: sdk } = useContext(ExtensionContext)
   const [dashboardDataFetched, setDashboardDataFetched] = useState(false)
-
+  const [localMetadataLoaded, setLocalMetadataLoaded] = useState(false)
   const { assistantConfig } = useSelector((state: RootState) => state.assistant)
+
+  const isOnDashboard = useMemo(() => {
+    return tileHostData.dashboardId && tileHostData.elementId
+  }, [tileHostData])
 
   const loadConfig = async () => {
     try {
@@ -270,17 +274,27 @@ export const useMetadata = () => {
   }, [])
 
   useEffect(() => {
-    if (tileHostData.dashboardId && tileHostData.elementId && !dashboardDataFetched) {
-      getDashboard()
-      setDashboardDataFetched(true)
+    if (isOnDashboard && !dashboardDataFetched) {
+      getDashboard().finally(() => {
+        setDashboardDataFetched(true)
+      })
     }
-  }, [tileHostData])
+  }, [isOnDashboard, dashboardDataFetched])
 
   useEffect(() => {
     if (assistantConfig) {
       Promise.all([getUser(), getExplores()]).finally(() => {
-        dispatch(setIsMetadataLoaded(true))
+        setLocalMetadataLoaded(true)
       })
     }
   }, [assistantConfig])
+
+  useEffect(() => {
+    // If we're on a dashboard, we need to wait for dashboard data to be fetched
+    const dashboardDataReady = isOnDashboard ? dashboardDataFetched : true
+
+    if (assistantConfig && localMetadataLoaded && dashboardDataReady) {
+      dispatch(setIsMetadataLoaded(true))
+    }
+  }, [assistantConfig, localMetadataLoaded, dashboardDataFetched, isOnDashboard])
 }
